@@ -33,6 +33,7 @@ import { BackgroundLayer } from './components/BackgroundLayer';
 import { ScrapbookModal } from './components/ScrapbookModal';
 import { MemoryNotification } from './components/MemoryNotification';
 import { DebateModal } from './components/DebateModal';
+import { FloatingStats } from './components/FloatingStats';
 
 type TabType = 'activities' | 'policies' | 'capital' | 'log';
 
@@ -43,6 +44,7 @@ function App() {
   const [isScrapbookOpen, setIsScrapbookOpen] = useState(false);
   const [welcomeData, setWelcomeData] = useState<{ earnings: number; seconds: number } | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('activities');
+  const [showFloatingStats, setShowFloatingStats] = useState(false);
 
   const calculateOfflineProgress = useStore(state => state.calculateOfflineProgress);
   const currentRankId = useStore(state => state.currentRankId);
@@ -85,6 +87,15 @@ function App() {
       setWelcomeData(progress);
     }
   }, [calculateOfflineProgress]);
+
+  // Scroll detection for floating stats (mobile only)
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowFloatingStats(window.scrollY > 200);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Calculate campaign log entries
   const logEntries: string[] = [];
@@ -174,17 +185,18 @@ function App() {
           <div className="max-w-7xl mx-auto px-4 py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <span className="text-3xl">{currentStage?.emoji || currentRank?.emoji || '✊'}</span>
+                <span className="text-3xl lg:text-3xl text-2xl">{currentStage?.emoji || currentRank?.emoji || '✊'}</span>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h1 className="text-lg font-bold text-white leading-tight">
+                    <h1 className="text-base lg:text-lg font-bold text-white leading-tight">
                       Political Revolution
                     </h1>
                     <span className={`text-xs px-2 py-0.5 rounded-full bg-gradient-to-r ${getStageGradient()} text-white`}>
                       {currentStage?.name}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  {/* Rank info - simplified on mobile */}
+                  <div className="hidden lg:flex items-center gap-2">
                     <span className="text-sm font-medium text-blue-400">
                       {currentRank?.title || 'Concerned Neighbor'}
                     </span>
@@ -193,6 +205,12 @@ function App() {
                         → {formatMoney(nextRank.threshold - highestLifetimeEarnings)} to {nextRank.title}
                       </span>
                     )}
+                  </div>
+                  {/* Compact rank on mobile */}
+                  <div className="lg:hidden">
+                    <span className="text-xs font-medium text-blue-400">
+                      {currentRank?.title || 'Concerned Neighbor'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -242,6 +260,9 @@ function App() {
             </div>
           </div>
         </header>
+
+        {/* Floating Stats Pill - Mobile only, shows when scrolled */}
+        <FloatingStats isVisible={showFloatingStats} />
 
         {/* Main Dashboard - 3 Columns on Desktop */}
         <main className="flex-1 max-w-7xl mx-auto w-full px-4 pt-4 pb-32 lg:py-6">
