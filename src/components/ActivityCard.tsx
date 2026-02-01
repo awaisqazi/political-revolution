@@ -5,6 +5,7 @@ import { getActivityCost, getManagerCost } from '../config/activities';
 import { formatNumber } from '../config/gameConfig';
 import { getPolicyById } from '../config/policies';
 import { formatMoney } from '../utils/formatting';
+import { getNextUnlock, getMilestoneSpeedMultiplier } from '../config/unlocks';
 
 interface ActivityCardProps {
     activity: ActivityConfig;
@@ -23,8 +24,6 @@ export function ActivityCard({ activity }: ActivityCardProps) {
     const canAfford = funds >= cost;
     const canAffordManager = funds >= managerCost && activityState.owned > 0 && !activityState.managerHired;
 
-    const progressPercent = (activityState.progress / activity.baseTime) * 100;
-
     // Can manually run if: owned, not managed, and not currently running
     const canManuallyRun = activityState.owned > 0 && !activityState.managerHired && activityState.progress === 0;
 
@@ -39,6 +38,22 @@ export function ActivityCard({ activity }: ActivityCardProps) {
 
     // Revenue per cycle with policy multipliers
     const revenuePerCycle = activity.baseRevenue * activityState.owned * policyMultiplier;
+
+    // Milestone system
+    const nextUnlock = getNextUnlock(activity.id, activityState.owned);
+    const speedMultiplier = getMilestoneSpeedMultiplier(activity.id, activityState.owned);
+    const effectiveTime = activity.baseTime / speedMultiplier;
+    const effectiveProgressPercent = (activityState.progress / effectiveTime) * 100;
+
+    // Calculate milestone progress (progress toward next unlock threshold)
+    const prevThreshold = nextUnlock ?
+        (nextUnlock.threshold === 25 ? 0 :
+            nextUnlock.threshold === 50 ? 25 :
+                nextUnlock.threshold === 100 ? 50 :
+                    nextUnlock.threshold - 100) : 0;
+    const milestoneProgress = nextUnlock
+        ? ((activityState.owned - prevThreshold) / (nextUnlock.threshold - prevThreshold)) * 100
+        : 100;
 
     return (
         <motion.div
@@ -76,12 +91,37 @@ export function ActivityCard({ activity }: ActivityCardProps) {
 
             {/* Progress Bar */}
             {activityState.owned > 0 && (
-                <div className="h-2 bg-slate-800 rounded-full overflow-hidden mb-3">
+                <div className="h-2 bg-slate-800 rounded-full overflow-hidden mb-2">
                     <motion.div
                         className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full"
-                        style={{ width: `${progressPercent}%` }}
+                        style={{ width: `${effectiveProgressPercent}%` }}
                         transition={{ duration: 0.1 }}
                     />
+                </div>
+            )}
+
+            {/* Milestone Progress Bar */}
+            {activityState.owned > 0 && nextUnlock && (
+                <div className="mb-3">
+                    <div className="flex justify-between text-xs mb-1">
+                        <span className="text-orange-400 font-medium">
+                            {activityState.owned} / {nextUnlock.threshold}
+                        </span>
+                        <span className="text-orange-300">
+                            → x{nextUnlock.multiplier} {nextUnlock.type === 'speed' ? '⚡ Speed' : '💰 Revenue'}
+                        </span>
+                    </div>
+                    <div className="h-1.5 bg-slate-700/50 rounded-full overflow-hidden">
+                        <motion.div
+                            className={`h-full rounded-full ${milestoneProgress >= 90
+                                ? 'bg-gradient-to-r from-yellow-500 to-orange-400 shadow-lg shadow-orange-500/50'
+                                : 'bg-gradient-to-r from-orange-600 to-orange-500'
+                                }`}
+                            style={{ width: `${Math.min(100, milestoneProgress)}%` }}
+                            animate={milestoneProgress >= 90 ? { opacity: [1, 0.7, 1] } : {}}
+                            transition={milestoneProgress >= 90 ? { duration: 0.5, repeat: Infinity } : {}}
+                        />
+                    </div>
                 </div>
             )}
 
@@ -95,8 +135,13 @@ export function ActivityCard({ activity }: ActivityCardProps) {
                         </span>
                     )}
                 </span>
-                <span>
-                    Time: {(activity.baseTime / 1000).toFixed(1)}s
+                <span className="flex items-center gap-1">
+                    Time: {(effectiveTime / 1000).toFixed(1)}s
+                    {speedMultiplier > 1 && (
+                        <span className="text-orange-400 font-medium">
+                            ({speedMultiplier}x ⚡)
+                        </span>
+                    )}
                 </span>
             </div>
 

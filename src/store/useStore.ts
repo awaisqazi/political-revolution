@@ -4,6 +4,13 @@ import { ACTIVITIES, getActivityCost, getManagerCost } from '../config/activitie
 import { POLICIES, getPolicyById } from '../config/policies';
 import { getRankForEarnings } from '../config/ranks';
 import {
+    getMilestoneSpeedMultiplier,
+    getGlobalMilestoneMultiplier,
+    getUnlocksForActivity,
+    getGlobalUnlocks,
+    type MilestoneNotification,
+} from '../config/unlocks';
+import {
     STARTING_FUNDS,
     MOMENTUM_CLICK_INCREMENT,
     MOMENTUM_DECAY_RATE,
@@ -47,6 +54,10 @@ export interface GameState {
     // Policies (upgrades)
     unlockedPolicies: string[];
 
+    // Milestones (Adventure Capitalist style)
+    unlockedMilestones: string[];
+    pendingNotifications: MilestoneNotification[];
+
     // Meta
     lastSaveTime: number;
     totalClicks: number;
@@ -63,10 +74,11 @@ export interface GameState {
     buyActivity: (id: string) => void;
     hireManager: (id: string) => void;
     runActivity: (id: string) => void;
-    buyPolicy: (id: string) => void; // NEW ACTION
+    buyPolicy: (id: string) => void;
     tick: (deltaMs: number) => void;
     prestige: () => void;
     dismissEvent: () => void;
+    dismissNotification: () => void;
     triggerEvent: (event: Omit<NewsEvent, 'id' | 'timestamp'>) => void;
     calculateOfflineProgress: () => { earnings: number; seconds: number };
 }
@@ -128,6 +140,8 @@ export const useStore = create<GameState>()(
             momentum: 0,
             activities: initializeActivities(),
             unlockedPolicies: [],
+            unlockedMilestones: [],
+            pendingNotifications: [],
             highestLifetimeEarnings: 0,
             currentRankId: 'neighbor',
             lastSaveTime: Date.now(),
@@ -243,12 +257,22 @@ export const useStore = create<GameState>()(
                     const effectiveDecayRate = Math.max(0.5, MOMENTUM_DECAY_RATE - decayReduction);
                     const newMomentum = Math.max(0, state.momentum - (effectiveDecayRate * deltaMs / 1000));
 
-                    // Multipliers
-                    const totalMultiplier = calculateMultipliers({ ...state, momentum: newMomentum });
+                    // Calculate total levels for global milestone checking
+                    const totalLevels = Object.values(state.activities).reduce(
+                        (sum, a) => sum + a.owned, 0
+                    );
+
+                    // Global milestone multiplier
+                    const globalMilestoneMultiplier = getGlobalMilestoneMultiplier(totalLevels);
+
+                    // Multipliers (including global milestone boost)
+                    const totalMultiplier = calculateMultipliers({ ...state, momentum: newMomentum }) * globalMilestoneMultiplier;
 
                     // Update activities
                     let earnings = 0;
                     const newActivities = { ...state.activities };
+                    const newMilestones = [...state.unlockedMilestones];
+                    const newNotifications = [...state.pendingNotifications];
 
                     ACTIVITIES.forEach(activity => {
                         const activityState = newActivities[activity.id];
@@ -258,20 +282,23 @@ export const useStore = create<GameState>()(
                         const isRunning = activityState.managerHired || activityState.progress > 0;
                         if (!isRunning) return;
 
+                        // Apply milestone speed multiplier to progress!
+                        const speedMultiplier = getMilestoneSpeedMultiplier(activity.id, activityState.owned);
+                        const effectiveTime = activity.baseTime / speedMultiplier;
                         const newProgress = activityState.progress + deltaMs;
 
-                        if (newProgress >= activity.baseTime) {
+                        if (newProgress >= effectiveTime) {
                             // Activity Completed!
                             const policyMultiplier = getPolicyMultiplier(state, activity.id);
                             const revenue = activity.baseRevenue * activityState.owned * totalMultiplier * policyMultiplier;
 
                             // If it overshot significantly (e.g. lag), calculate multiple completions for Managers only
                             if (activityState.managerHired) {
-                                const completions = Math.floor(newProgress / activity.baseTime);
+                                const completions = Math.floor(newProgress / effectiveTime);
                                 earnings += revenue * completions;
                                 newActivities[activity.id] = {
                                     ...activityState,
-                                    progress: newProgress % activity.baseTime, // Loop it
+                                    progress: newProgress % effectiveTime, // Loop it
                                     lastCompletionTime: Date.now(),
                                 };
                             } else {
@@ -290,7 +317,43 @@ export const useStore = create<GameState>()(
                                 progress: newProgress,
                             };
                         }
+
+                        // Check for new milestone unlocks for this activity
+                        const activityUnlocks = getUnlocksForActivity(activity.id);
+                        for (const unlock of activityUnlocks) {
+                            if (activityState.owned >= unlock.threshold && !newMilestones.includes(unlock.id)) {
+                                newMilestones.push(unlock.id);
+                                newNotifications.push({
+                                    id: `notif-${unlock.id}-${Date.now()}`,
+                                    activityId: activity.id,
+                                    activityName: activity.name,
+                                    activityEmoji: activity.emoji,
+                                    threshold: unlock.threshold,
+                                    bonusType: unlock.type,
+                                    multiplier: unlock.multiplier,
+                                    timestamp: Date.now(),
+                                });
+                            }
+                        }
                     });
+
+                    // Check for global milestone unlocks
+                    const globalUnlocks = getGlobalUnlocks();
+                    for (const unlock of globalUnlocks) {
+                        if (totalLevels >= unlock.threshold && !newMilestones.includes(unlock.id)) {
+                            newMilestones.push(unlock.id);
+                            newNotifications.push({
+                                id: `notif-${unlock.id}-${Date.now()}`,
+                                activityId: 'global',
+                                activityName: 'Total Activities',
+                                activityEmoji: '🌍',
+                                threshold: unlock.threshold,
+                                bonusType: unlock.type,
+                                multiplier: unlock.multiplier,
+                                timestamp: Date.now(),
+                            });
+                        }
+                    }
 
                     // Update rank if we've reached a new high
                     const newLifetimeEarnings = state.lifetimeEarnings + earnings;
@@ -302,6 +365,8 @@ export const useStore = create<GameState>()(
                         funds: state.funds + earnings,
                         lifetimeEarnings: newLifetimeEarnings,
                         activities: newActivities,
+                        unlockedMilestones: newMilestones,
+                        pendingNotifications: newNotifications,
                         highestLifetimeEarnings: newHighest,
                         currentRankId: newRank.id,
                         lastSaveTime: Date.now(),
@@ -360,6 +425,8 @@ export const useStore = create<GameState>()(
                     momentum: 0,
                     activities: initializeActivities(),
                     unlockedPolicies: [], // Reset policies on prestige
+                    unlockedMilestones: [], // Reset milestones on prestige
+                    pendingNotifications: [],
                     volunteers: newVolunteers,
                     activeEvent: null,
                     lastSaveTime: Date.now(),
@@ -367,6 +434,12 @@ export const useStore = create<GameState>()(
             },
 
             dismissEvent: () => { set({ activeEvent: null }); },
+
+            dismissNotification: () => {
+                set(state => ({
+                    pendingNotifications: state.pendingNotifications.slice(1),
+                }));
+            },
 
             triggerEvent: (event) => {
                 set(state => ({
@@ -385,6 +458,7 @@ export const useStore = create<GameState>()(
                 momentum: state.momentum,
                 activities: state.activities,
                 unlockedPolicies: state.unlockedPolicies,
+                unlockedMilestones: state.unlockedMilestones,
                 highestLifetimeEarnings: state.highestLifetimeEarnings,
                 currentRankId: state.currentRankId,
                 lastSaveTime: state.lastSaveTime,

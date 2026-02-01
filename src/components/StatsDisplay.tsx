@@ -4,6 +4,7 @@ import { formatNumber, getMomentumMultiplier, VOLUNTEER_BONUS_PER } from '../con
 import { ACTIVITIES } from '../config/activities';
 import { getPolicyById } from '../config/policies';
 import { formatMoney } from '../utils/formatting';
+import { getMilestoneSpeedMultiplier, getGlobalMilestoneMultiplier } from '../config/unlocks';
 
 export function StatsDisplay() {
     const funds = useStore(state => state.funds);
@@ -28,8 +29,12 @@ export function StatsDisplay() {
         return mult;
     }, 1);
 
+    // Calculate total levels for global milestone multiplier
+    const totalLevels = Object.values(activities).reduce((sum, a) => sum + a.owned, 0);
+    const globalMilestoneMultiplier = getGlobalMilestoneMultiplier(totalLevels);
+
     // Calculate $/sec from automated activities
-    const totalMultiplier = popularity * volunteerMultiplier * momentumMultiplier * globalPolicyMultiplier;
+    const totalMultiplier = popularity * volunteerMultiplier * momentumMultiplier * globalPolicyMultiplier * globalMilestoneMultiplier;
 
     const earningsPerSecond = ACTIVITIES.reduce((total, activity) => {
         const activityState = activities[activity.id];
@@ -44,7 +49,11 @@ export function StatsDisplay() {
             return mult;
         }, 1);
 
-        const completionsPerSecond = 1000 / activity.baseTime;
+        // Milestone speed multiplier - faster completions = more $/sec!
+        const speedMultiplier = getMilestoneSpeedMultiplier(activity.id, activityState.owned);
+        const effectiveTime = activity.baseTime / speedMultiplier;
+        const completionsPerSecond = 1000 / effectiveTime;
+
         const revenuePerSecond = activity.baseRevenue * activityState.owned * totalMultiplier * activityPolicyMultiplier * completionsPerSecond;
         return total + revenuePerSecond;
     }, 0);

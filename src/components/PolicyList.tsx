@@ -10,18 +10,21 @@ export function PolicyList() {
     const buyPolicy = useStore(state => state.buyPolicy);
 
     // Filter policies based on visibility:
-    // - Activity policies: only show if player owns >= 1 of that activity
-    // - Global policies: show if player owns any activity
-    const hasAnyActivity = Object.values(activities).some(a => a.owned > 0);
+    // - Activity policies: only show if player owns >= requiredOwned of that activity
+    // - Global policies: show if player's total activities >= requiredOwned
+    const totalActivities = Object.values(activities).reduce((sum, a) => sum + a.owned, 0);
 
     const visiblePolicies = POLICIES.filter(policy => {
         if (policy.type === 'global') {
-            return hasAnyActivity;
+            // Global policies: require total activities >= requiredOwned
+            const required = policy.requiredOwned ?? 1;
+            return totalActivities >= required;
         }
-        // Activity-specific policy: check if player owns that activity
+        // Activity-specific policy: check if player owns enough of that activity
         if (policy.triggerId) {
             const activityState = activities[policy.triggerId];
-            return activityState && activityState.owned > 0;
+            const required = policy.requiredOwned ?? 1;
+            return activityState && activityState.owned >= required;
         }
         return false;
     });

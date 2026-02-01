@@ -14,6 +14,7 @@ import { NewsEvent } from './components/NewsEvent';
 import { PolicyList } from './components/PolicyList';
 import { WelcomeModal } from './components/WelcomeModal';
 import { NewsTicker } from './components/NewsTicker';
+import { UnlockNotification } from './components/UnlockNotification';
 
 type TabType = 'activities' | 'policies' | 'log';
 
@@ -147,8 +148,8 @@ function App() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${activeTab === tab.id
-                      ? 'bg-blue-600 text-white shadow-lg'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                    ? 'bg-blue-600 text-white shadow-lg'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
                     }`}
                 >
                   {tab.icon} {tab.label}
@@ -300,8 +301,8 @@ function App() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${activeTab === tab.id
-                  ? 'bg-blue-600 text-white'
-                  : 'text-slate-400'
+                ? 'bg-blue-600 text-white'
+                : 'text-slate-400'
                 }`}
             >
               <div className="text-lg">{tab.icon}</div>
@@ -326,6 +327,9 @@ function App() {
 
       {/* News Events */}
       <NewsEvent />
+
+      {/* Milestone Notifications */}
+      <UnlockNotification />
     </div>
   );
 }
