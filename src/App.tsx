@@ -17,7 +17,7 @@ import { WelcomeModal } from './components/WelcomeModal';
 import { NewsTicker } from './components/NewsTicker';
 import { UnlockNotification } from './components/UnlockNotification';
 import { BuyModeToggle } from './components/BuyModeToggle';
-import { CapitalUpgradeList } from './components/CapitalUpgradeList';
+import { PowerStructureList } from './components/PowerStructureList';
 import { RecruitmentModal } from './components/RecruitmentModal';
 
 type TabType = 'activities' | 'policies' | 'capital' | 'log';
@@ -64,7 +64,7 @@ function App() {
   const tabs: { id: TabType; label: string; icon: string }[] = [
     { id: 'activities', label: 'Outreach', icon: '📢' },
     { id: 'policies', label: 'Policies', icon: '📜' },
-    { id: 'capital', label: 'Capital', icon: '🏛️' },
+    { id: 'capital', label: 'Build Power', icon: '✊' },
     { id: 'log', label: 'Log', icon: '📋' },
   ];
 
@@ -211,7 +211,7 @@ function App() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                 >
-                  <CapitalUpgradeList />
+                  <PowerStructureList />
                 </motion.div>
               )}
 

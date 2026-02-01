@@ -10,7 +10,7 @@ import {
     getGlobalUnlocks,
     type MilestoneNotification,
 } from '../config/unlocks';
-import { getAngelUpgradeMultiplier, getAngelUpgradeById } from '../config/angelUpgrades';
+import { getPowerStructureMultiplier, getPowerStructureById } from '../config/powerStructures';
 import {
     STARTING_FUNDS,
     MOMENTUM_CLICK_INCREMENT,
@@ -64,8 +64,8 @@ export interface GameState {
     unlockedMilestones: string[];
     pendingNotifications: MilestoneNotification[];
 
-    // Angel Upgrades (Political Capital)
-    unlockedAngelUpgrades: string[];
+    // Power Structures (Deep Organizing)
+    unlockedStructures: string[];
 
     // Meta
     lastSaveTime: number;
@@ -99,7 +99,7 @@ export interface GameState {
     triggerEvent: (event: Omit<NewsEvent, 'id' | 'timestamp'>) => void;
     calculateOfflineProgress: () => { earnings: number; seconds: number };
     cycleBuyMode: () => void;
-    buyAngelUpgrade: (id: string) => void;
+    assignVolunteers: (id: string) => void;
 
     // Mini-game actions
     startMiniGame: (activityId: string) => void;
@@ -135,10 +135,10 @@ const calculateMultipliers = (state: GameState) => {
         return mult;
     }, 1);
 
-    // Calculate angel upgrade multiplier
-    const angelMultiplier = getAngelUpgradeMultiplier(state.unlockedAngelUpgrades || []);
+    // Calculate power structure multiplier
+    const structureMultiplier = getPowerStructureMultiplier(state.unlockedStructures || []);
 
-    return state.popularity * volunteerMultiplier * momentumMultiplier * globalPolicyMultiplier * angelMultiplier;
+    return state.popularity * volunteerMultiplier * momentumMultiplier * globalPolicyMultiplier * structureMultiplier;
 };
 
 // Helper to get multiplier for a specific activity from unlocked policies
@@ -168,7 +168,7 @@ export const useStore = create<GameState>()(
             activities: initializeActivities(),
             unlockedPolicies: [],
             unlockedMilestones: [],
-            unlockedAngelUpgrades: [],
+            unlockedStructures: [],
             pendingNotifications: [],
             highestLifetimeEarnings: 0,
             currentRankId: 'neighbor',
@@ -189,11 +189,17 @@ export const useStore = create<GameState>()(
                 const multipliers = calculateMultipliers(state);
                 const clickValue = 1 * multipliers;
 
+                const newLifetimeEarnings = state.lifetimeEarnings + clickValue;
+                const newHighest = Math.max(state.highestLifetimeEarnings, newLifetimeEarnings);
+                const newRank = getRankForEarnings(newHighest);
+
                 set(state => ({
                     momentum: Math.min(100, state.momentum + MOMENTUM_CLICK_INCREMENT),
                     totalClicks: state.totalClicks + 1,
                     funds: state.funds + clickValue,
-                    lifetimeEarnings: state.lifetimeEarnings + clickValue,
+                    lifetimeEarnings: newLifetimeEarnings,
+                    highestLifetimeEarnings: newHighest,
+                    currentRankId: newRank.id,
                 }));
             },
 
@@ -436,7 +442,10 @@ export const useStore = create<GameState>()(
                     return mult;
                 }, 1);
 
-                const totalMultiplier = state.popularity * volunteerMultiplier * globalPolicyMultiplier; // No momentum offline
+                // Calculate power structure multiplier for offline
+                const structureMultiplier = getPowerStructureMultiplier(state.unlockedStructures || []);
+
+                const totalMultiplier = state.popularity * volunteerMultiplier * globalPolicyMultiplier * structureMultiplier; // No momentum offline
 
                 let totalEarnings = 0;
 
@@ -476,7 +485,7 @@ export const useStore = create<GameState>()(
                     activities: initializeActivities(),
                     unlockedPolicies: [], // Reset policies on prestige
                     unlockedMilestones: [], // Reset milestones on prestige
-                    unlockedAngelUpgrades: [], // Reset angel upgrades on prestige (AdCap style)
+                    unlockedStructures: [], // Reset power structures on prestige
                     pendingNotifications: [],
                     volunteers: state.volunteers + bonusVolunteers, // ADD to existing volunteers
                     activeEvent: null,
@@ -508,15 +517,15 @@ export const useStore = create<GameState>()(
                 });
             },
 
-            buyAngelUpgrade: (id: string) => {
+            assignVolunteers: (id: string) => {
                 const state = get();
-                const upgrade = getAngelUpgradeById(id);
-                if (!upgrade) return;
+                const structure = getPowerStructureById(id);
+                if (!structure) return;
 
-                if (state.volunteers >= upgrade.cost && !state.unlockedAngelUpgrades.includes(id)) {
+                if (state.volunteers >= structure.cost && !state.unlockedStructures.includes(id)) {
                     set(state => ({
-                        volunteers: state.volunteers - upgrade.cost,
-                        unlockedAngelUpgrades: [...state.unlockedAngelUpgrades, id],
+                        volunteers: state.volunteers - structure.cost,
+                        unlockedStructures: [...state.unlockedStructures, id],
                     }));
                 }
             },
@@ -564,7 +573,7 @@ export const useStore = create<GameState>()(
                 activities: state.activities,
                 unlockedPolicies: state.unlockedPolicies,
                 unlockedMilestones: state.unlockedMilestones,
-                unlockedAngelUpgrades: state.unlockedAngelUpgrades,
+                unlockedStructures: state.unlockedStructures,
                 highestLifetimeEarnings: state.highestLifetimeEarnings,
                 currentRankId: state.currentRankId,
                 lastSaveTime: state.lastSaveTime,

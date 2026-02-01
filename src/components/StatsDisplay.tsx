@@ -5,6 +5,7 @@ import { ACTIVITIES } from '../config/activities';
 import { getPolicyById } from '../config/policies';
 import { formatMoney } from '../utils/formatting';
 import { getMilestoneSpeedMultiplier, getGlobalMilestoneMultiplier } from '../config/unlocks';
+import { getPowerStructureMultiplier } from '../config/powerStructures';
 
 export function StatsDisplay() {
     const funds = useStore(state => state.funds);
@@ -14,6 +15,7 @@ export function StatsDisplay() {
     const momentum = useStore(state => state.momentum);
     const activities = useStore(state => state.activities);
     const unlockedPolicies = useStore(state => state.unlockedPolicies);
+    const unlockedStructures = useStore(state => state.unlockedStructures);
 
     const momentumMultiplier = getMomentumMultiplier(momentum);
     const volunteerBonus = volunteers * VOLUNTEER_BONUS_PER * 100;
@@ -33,8 +35,11 @@ export function StatsDisplay() {
     const totalLevels = Object.values(activities).reduce((sum, a) => sum + a.owned, 0);
     const globalMilestoneMultiplier = getGlobalMilestoneMultiplier(totalLevels);
 
+    // Calculate power structure multiplier
+    const powerStructureMultiplier = getPowerStructureMultiplier(unlockedStructures || []);
+
     // Calculate $/sec from automated activities
-    const totalMultiplier = popularity * volunteerMultiplier * momentumMultiplier * globalPolicyMultiplier * globalMilestoneMultiplier;
+    const totalMultiplier = popularity * volunteerMultiplier * momentumMultiplier * globalPolicyMultiplier * globalMilestoneMultiplier * powerStructureMultiplier;
 
     const earningsPerSecond = ACTIVITIES.reduce((total, activity) => {
         const activityState = activities[activity.id];

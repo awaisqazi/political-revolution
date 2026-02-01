@@ -127,12 +127,18 @@ export function RecruitmentModal() {
                                 animate={{ y: 0 }}
                                 className="mb-4"
                             >
-                                <div className="text-4xl mb-2">📋</div>
-                                <h2 className="text-2xl font-bold text-white mb-1">
-                                    RECRUITMENT DRIVE!
+                                <motion.div
+                                    className="text-4xl mb-2"
+                                    animate={{ scale: [1, 1.1, 1] }}
+                                    transition={{ repeat: Infinity, duration: 0.5 }}
+                                >
+                                    🚨
+                                </motion.div>
+                                <h2 className="text-2xl font-bold text-red-400 mb-1 uppercase tracking-wider">
+                                    EMERGENCY RALLY!
                                 </h2>
-                                <p className="text-sm text-blue-400">
-                                    {activity?.emoji} {activity?.name} hit Milestone!
+                                <p className="text-sm text-amber-400 font-medium">
+                                    {activity?.emoji} {activity?.name} hit Milestone! MOBILIZE!
                                 </p>
                             </motion.div>
 
