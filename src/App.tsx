@@ -120,7 +120,7 @@ function App() {
 
   return (
     <AudioProvider>
-      <div className={`min-h-screen flex flex-col transition-colors duration-1000 ${currentStage?.backgroundStyle || 'bg-slate-900'}`}>
+      <div className={`min-h-screen flex flex-col transition-colors duration-1000 ${currentStage?.backgroundStyle || 'bg-slate-900/50'}`}>
         <BackgroundLayer />
         {/* Stage Promotion Celebration Overlay */}
         <AnimatePresence>
