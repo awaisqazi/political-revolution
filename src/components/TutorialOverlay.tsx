@@ -139,7 +139,7 @@ function CampaignManager({ message, onContinue, onSkip, showContinue }: {
 
 function Spotlight({ targetId }: { targetId: string }) {
     const [rect, setRect] = useState<DOMRect | null>(null);
-    const animationFrameRef = useRef<number>();
+    const animationFrameRef = useRef<number | null>(null);
 
     useEffect(() => {
         const updateRect = () => {
