@@ -212,45 +212,41 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
                         {/* Export Save */}
                         <div className="p-4 bg-slate-800/50 rounded-xl">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-3">
-                                    <span className="text-2xl">💾</span>
-                                    <div>
-                                        <div className="font-medium text-white">Export Save</div>
-                                        <div className="text-sm text-slate-400">
-                                            Backup your progress
-                                        </div>
-                                    </div>
+                            <div className="flex items-center gap-3 mb-3">
+                                <span className="text-2xl">💾</span>
+                                <div>
+                                    <div className="font-medium text-white">Export Save</div>
+                                    <div className="text-xs text-slate-400">Backup your progress</div>
                                 </div>
-                                <div className="flex gap-2">
-                                    <motion.button
-                                        onClick={handleCopy}
-                                        className={`px-3 py-2 rounded-lg font-medium text-sm transition-all ${copied
-                                            ? 'bg-emerald-600 text-white'
-                                            : 'bg-blue-600 text-white hover:bg-blue-500'
-                                            }`}
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
-                                    >
-                                        {copied ? '✓ Copied!' : '📋 Copy'}
-                                    </motion.button>
-                                    <motion.button
-                                        onClick={handleDownload}
-                                        className="px-3 py-2 rounded-lg font-medium text-sm bg-emerald-600 text-white hover:bg-emerald-500 transition-all"
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
-                                    >
-                                        📥 Download
-                                    </motion.button>
-                                    <motion.button
-                                        onClick={() => setShowExport(!showExport)}
-                                        className="px-3 py-2 rounded-lg font-medium text-sm bg-slate-700 text-slate-300 hover:bg-slate-600 transition-all"
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
-                                    >
-                                        {showExport ? 'Hide' : 'View'}
-                                    </motion.button>
-                                </div>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                <motion.button
+                                    onClick={handleCopy}
+                                    className={`px-3 py-2 rounded-lg font-medium text-sm transition-all ${copied
+                                        ? 'bg-emerald-600 text-white'
+                                        : 'bg-blue-600 text-white hover:bg-blue-500'
+                                        }`}
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                >
+                                    {copied ? '✓ Copied' : '📋 Copy'}
+                                </motion.button>
+                                <motion.button
+                                    onClick={handleDownload}
+                                    className="px-3 py-2 rounded-lg font-medium text-sm bg-emerald-600 text-white hover:bg-emerald-500 transition-all"
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                >
+                                    📥 Download
+                                </motion.button>
+                                <motion.button
+                                    onClick={() => setShowExport(!showExport)}
+                                    className="px-3 py-2 rounded-lg font-medium text-sm bg-slate-700 text-slate-300 hover:bg-slate-600 transition-all"
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                >
+                                    {showExport ? 'Hide' : 'View'}
+                                </motion.button>
                             </div>
                             <AnimatePresence>
                                 {showExport && (
