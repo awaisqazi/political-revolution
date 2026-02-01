@@ -48,27 +48,25 @@ export function ActivityCard({ activity }: ActivityCardProps) {
             transition={{ duration: 0.3 }}
             onClick={() => canManuallyRun && runActivity(activity.id)}
         >
-            {/* Manager Badge */}
-            {activityState.managerHired && (
-                <div className="absolute top-2 right-2">
-                    <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full">
-                        ✓ Automated
-                    </span>
-                </div>
-            )}
-
             {/* Header */}
             <div className="flex items-start gap-3 mb-3">
                 <div className="text-3xl">{activity.emoji}</div>
                 <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-white truncate">
-                        {activity.name}
-                    </h3>
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-semibold text-white truncate">
+                            {activity.name}
+                        </h3>
+                        {activityState.managerHired && (
+                            <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full whitespace-nowrap">
+                                ✓ Auto
+                            </span>
+                        )}
+                    </div>
                     <p className="text-xs text-slate-400 line-clamp-1">
                         {activity.description}
                     </p>
                 </div>
-                <div className="text-right">
+                <div className="text-right flex-shrink-0">
                     <div className="text-lg font-bold text-blue-400 tabular-nums">
                         {activityState.owned}
                     </div>
