@@ -6,6 +6,7 @@ import { useStore } from './store/useStore';
 import { ACTIVITIES } from './config/activities';
 import { getRankById, getNextRank } from './config/ranks';
 import { formatMoney } from './utils/formatting';
+import { VOLUNTEER_BONUS_PER } from './config/gameConfig';
 import { CanvassButton } from './components/CanvassButton';
 import { StatsDisplay } from './components/StatsDisplay';
 import { ActivityCard } from './components/ActivityCard';
@@ -17,6 +18,7 @@ import { NewsTicker } from './components/NewsTicker';
 import { UnlockNotification } from './components/UnlockNotification';
 import { BuyModeToggle } from './components/BuyModeToggle';
 import { CapitalUpgradeList } from './components/CapitalUpgradeList';
+import { RecruitmentModal } from './components/RecruitmentModal';
 
 type TabType = 'activities' | 'policies' | 'capital' | 'log';
 
@@ -123,7 +125,7 @@ function App() {
               </div>
               <p className="text-xs text-slate-500">
                 {volunteers > 0
-                  ? `+${(volunteers * 5).toFixed(0)}% revenue bonus`
+                  ? `+${(volunteers * VOLUNTEER_BONUS_PER * 100).toFixed(1)}% revenue bonus`
                   : 'Prestige to earn volunteers'
                 }
               </p>
@@ -199,17 +201,6 @@ function App() {
                   exit={{ opacity: 0, y: -10 }}
                 >
                   <PolicyList />
-                </motion.div>
-              )}
-
-              {activeTab === 'capital' && (
-                <motion.div
-                  key="capital"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                >
-                  <CapitalUpgradeList />
                 </motion.div>
               )}
 
@@ -363,6 +354,9 @@ function App() {
 
       {/* Milestone Notifications */}
       <UnlockNotification />
+
+      {/* Recruitment Drive Mini-Game */}
+      <RecruitmentModal />
     </div>
   );
 }

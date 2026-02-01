@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { ACTIVITIES, getActivityCost, getManagerCost } from '../config/activities';
 import { POLICIES, getPolicyById } from '../config/policies';
-import { getRankForEarnings } from '../config/ranks';
+import { RANKS, getRankForEarnings } from '../config/ranks';
 import {
     getMilestoneSpeedMultiplier,
     getGlobalMilestoneMultiplier,
@@ -20,6 +20,7 @@ import {
     VOLUNTEER_MOMENTUM_DECAY_REDUCTION,
     OFFLINE_MAX_SECONDS,
     getMomentumMultiplier,
+    MILESTONE_THRESHOLDS,
 } from '../config/gameConfig';
 
 // ================================================
@@ -42,6 +43,8 @@ export interface NewsEvent {
 }
 
 export type BuyMode = 'x1' | 'x10' | 'x100' | 'next' | 'max';
+
+export type MiniGameType = 'none' | 'petition-blitz';
 
 export interface GameState {
     // Core resources
@@ -78,6 +81,11 @@ export interface GameState {
     // Buy mode
     buyMode: BuyMode;
 
+    // Mini-game state
+    activeMiniGame: MiniGameType;
+    miniGameScore: number;
+    miniGameActivityId: string | null;
+
     // Actions
     canvass: () => void;
     buyActivity: (id: string) => void;
@@ -92,6 +100,11 @@ export interface GameState {
     calculateOfflineProgress: () => { earnings: number; seconds: number };
     cycleBuyMode: () => void;
     buyAngelUpgrade: (id: string) => void;
+
+    // Mini-game actions
+    startMiniGame: (activityId: string) => void;
+    clickMiniGame: () => void;
+    endMiniGame: () => void;
 }
 
 // Initialize activities state
@@ -164,6 +177,11 @@ export const useStore = create<GameState>()(
             activeEvent: null,
             buyMode: 'x1',
 
+            // Mini-game state
+            activeMiniGame: 'none',
+            miniGameScore: 0,
+            miniGameActivityId: null,
+
             // Canvass action - fills momentum bar AND EARNS FUNDS
             canvass: () => {
                 const state = get();
@@ -208,15 +226,26 @@ export const useStore = create<GameState>()(
                 const cost = getActivityCost(activity.baseCost, activityState.owned);
 
                 if (state.funds >= cost) {
+                    const newQuantity = activityState.owned + 1;
+
+                    // Check if this purchase hits a milestone threshold
+                    const hitMilestone = MILESTONE_THRESHOLDS.includes(newQuantity);
+
                     set(state => ({
                         funds: state.funds - cost,
                         activities: {
                             ...state.activities,
                             [id]: {
                                 ...state.activities[id],
-                                owned: state.activities[id].owned + 1,
+                                owned: newQuantity,
                             },
                         },
+                        // Trigger mini-game if milestone hit
+                        ...(hitMilestone ? {
+                            activeMiniGame: 'petition-blitz' as const,
+                            miniGameScore: 0,
+                            miniGameActivityId: id,
+                        } : {}),
                     }));
                 }
             },
@@ -433,18 +462,23 @@ export const useStore = create<GameState>()(
 
             prestige: () => {
                 const state = get();
-                const newVolunteers = Math.floor(Math.sqrt(state.lifetimeEarnings / VOLUNTEER_DIVISOR));
-                if (newVolunteers <= state.volunteers) return;
+                // Calculate bonus volunteers from prestige formula
+                const bonusVolunteers = Math.floor(Math.sqrt(state.lifetimeEarnings / VOLUNTEER_DIVISOR));
+
+                // Always allow prestige - ADD bonus to existing volunteers
                 set({
                     funds: STARTING_FUNDS,
                     lifetimeEarnings: 0,
                     momentum: 0,
+                    totalClicks: 0, // Reset doors knocked
+                    highestLifetimeEarnings: 0, // Reset total raised
+                    currentRankId: 'neighbor', // Reset rank
                     activities: initializeActivities(),
                     unlockedPolicies: [], // Reset policies on prestige
                     unlockedMilestones: [], // Reset milestones on prestige
                     unlockedAngelUpgrades: [], // Reset angel upgrades on prestige (AdCap style)
                     pendingNotifications: [],
-                    volunteers: newVolunteers,
+                    volunteers: state.volunteers + bonusVolunteers, // ADD to existing volunteers
                     activeEvent: null,
                     lastSaveTime: Date.now(),
                 });
@@ -485,6 +519,38 @@ export const useStore = create<GameState>()(
                         unlockedAngelUpgrades: [...state.unlockedAngelUpgrades, id],
                     }));
                 }
+            },
+
+            // Mini-game actions
+            startMiniGame: (activityId: string) => {
+                set({
+                    activeMiniGame: 'petition-blitz',
+                    miniGameScore: 0,
+                    miniGameActivityId: activityId,
+                });
+            },
+
+            clickMiniGame: () => {
+                set(state => ({
+                    miniGameScore: state.miniGameScore + 1,
+                }));
+            },
+
+            endMiniGame: () => {
+                const state = get();
+                // Calculate rank multiplier (index + 1)
+                const rankIndex = RANKS.findIndex(r => r.id === state.currentRankId);
+                const rankMultiplier = Math.max(1, rankIndex + 1);
+
+                // Calculate volunteers earned
+                const volunteersEarned = state.miniGameScore * rankMultiplier;
+
+                set(state => ({
+                    activeMiniGame: 'none',
+                    miniGameScore: 0,
+                    miniGameActivityId: null,
+                    volunteers: state.volunteers + volunteersEarned,
+                }));
             },
         }),
         {

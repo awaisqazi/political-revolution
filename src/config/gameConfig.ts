@@ -21,14 +21,18 @@ export const MANAGER_COST_MULTIPLIER = 75;
 
 // Prestige
 export const VOLUNTEER_DIVISOR = 1_000_000_000_000; // 1 trillion
-export const VOLUNTEER_BONUS_PER = 0.02; // +2% per volunteer
-export const VOLUNTEER_MOMENTUM_DECAY_REDUCTION = 0.005; // -0.5% decay per volunteer
+export const VOLUNTEER_BONUS_PER = 0.00002; // +2% per 1000 volunteers (0.002% per volunteer)
+export const VOLUNTEER_MOMENTUM_DECAY_REDUCTION = 0.000005; // -0.5% decay per 1000 volunteers
 
 // Offline progression cap (max 8 hours)
 export const OFFLINE_MAX_SECONDS = 8 * 60 * 60;
 
 // Starting funds
 export const STARTING_FUNDS = 5;
+
+// Mini-Game: Recruitment Drive
+export const MINIGAME_DURATION = 10; // seconds
+export const MILESTONE_THRESHOLDS = [25, 50, 100, 200, 500, 1000]; // Activity quantities that trigger drives
 
 // Format large numbers
 export function formatNumber(n: number): string {
