@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { ACTIVITIES, getActivityCost, getManagerCost } from '../config/activities';
 import { POLICIES, getPolicyById } from '../config/policies';
+import { getRankForEarnings } from '../config/ranks';
 import {
     STARTING_FUNDS,
     MOMENTUM_CLICK_INCREMENT,
@@ -49,6 +50,10 @@ export interface GameState {
     // Meta
     lastSaveTime: number;
     totalClicks: number;
+
+    // Rank (persists through prestige)
+    highestLifetimeEarnings: number;
+    currentRankId: string;
 
     // News events
     activeEvent: NewsEvent | null;
@@ -123,6 +128,8 @@ export const useStore = create<GameState>()(
             momentum: 0,
             activities: initializeActivities(),
             unlockedPolicies: [],
+            highestLifetimeEarnings: 0,
+            currentRankId: 'neighbor',
             lastSaveTime: Date.now(),
             totalClicks: 0,
             activeEvent: null,
@@ -285,11 +292,18 @@ export const useStore = create<GameState>()(
                         }
                     });
 
+                    // Update rank if we've reached a new high
+                    const newLifetimeEarnings = state.lifetimeEarnings + earnings;
+                    const newHighest = Math.max(state.highestLifetimeEarnings, newLifetimeEarnings);
+                    const newRank = getRankForEarnings(newHighest);
+
                     return {
                         momentum: newMomentum,
                         funds: state.funds + earnings,
-                        lifetimeEarnings: state.lifetimeEarnings + earnings,
+                        lifetimeEarnings: newLifetimeEarnings,
                         activities: newActivities,
+                        highestLifetimeEarnings: newHighest,
+                        currentRankId: newRank.id,
                         lastSaveTime: Date.now(),
                     };
                 });
@@ -371,6 +385,8 @@ export const useStore = create<GameState>()(
                 momentum: state.momentum,
                 activities: state.activities,
                 unlockedPolicies: state.unlockedPolicies,
+                highestLifetimeEarnings: state.highestLifetimeEarnings,
+                currentRankId: state.currentRankId,
                 lastSaveTime: state.lastSaveTime,
                 totalClicks: state.totalClicks,
             }),
