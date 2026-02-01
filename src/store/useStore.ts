@@ -10,6 +10,7 @@ import {
     getGlobalUnlocks,
     type MilestoneNotification,
 } from '../config/unlocks';
+import { getAngelUpgradeMultiplier, getAngelUpgradeById } from '../config/angelUpgrades';
 import {
     STARTING_FUNDS,
     MOMENTUM_CLICK_INCREMENT,
@@ -60,6 +61,9 @@ export interface GameState {
     unlockedMilestones: string[];
     pendingNotifications: MilestoneNotification[];
 
+    // Angel Upgrades (Political Capital)
+    unlockedAngelUpgrades: string[];
+
     // Meta
     lastSaveTime: number;
     totalClicks: number;
@@ -87,6 +91,7 @@ export interface GameState {
     triggerEvent: (event: Omit<NewsEvent, 'id' | 'timestamp'>) => void;
     calculateOfflineProgress: () => { earnings: number; seconds: number };
     cycleBuyMode: () => void;
+    buyAngelUpgrade: (id: string) => void;
 }
 
 // Initialize activities state
@@ -117,7 +122,10 @@ const calculateMultipliers = (state: GameState) => {
         return mult;
     }, 1);
 
-    return state.popularity * volunteerMultiplier * momentumMultiplier * globalPolicyMultiplier;
+    // Calculate angel upgrade multiplier
+    const angelMultiplier = getAngelUpgradeMultiplier(state.unlockedAngelUpgrades || []);
+
+    return state.popularity * volunteerMultiplier * momentumMultiplier * globalPolicyMultiplier * angelMultiplier;
 };
 
 // Helper to get multiplier for a specific activity from unlocked policies
@@ -147,6 +155,7 @@ export const useStore = create<GameState>()(
             activities: initializeActivities(),
             unlockedPolicies: [],
             unlockedMilestones: [],
+            unlockedAngelUpgrades: [],
             pendingNotifications: [],
             highestLifetimeEarnings: 0,
             currentRankId: 'neighbor',
@@ -433,6 +442,7 @@ export const useStore = create<GameState>()(
                     activities: initializeActivities(),
                     unlockedPolicies: [], // Reset policies on prestige
                     unlockedMilestones: [], // Reset milestones on prestige
+                    unlockedAngelUpgrades: [], // Reset angel upgrades on prestige (AdCap style)
                     pendingNotifications: [],
                     volunteers: newVolunteers,
                     activeEvent: null,
@@ -463,6 +473,19 @@ export const useStore = create<GameState>()(
                     return { buyMode: modes[nextIndex] };
                 });
             },
+
+            buyAngelUpgrade: (id: string) => {
+                const state = get();
+                const upgrade = getAngelUpgradeById(id);
+                if (!upgrade) return;
+
+                if (state.volunteers >= upgrade.cost && !state.unlockedAngelUpgrades.includes(id)) {
+                    set(state => ({
+                        volunteers: state.volunteers - upgrade.cost,
+                        unlockedAngelUpgrades: [...state.unlockedAngelUpgrades, id],
+                    }));
+                }
+            },
         }),
         {
             name: 'political-revolution-save',
@@ -475,6 +498,7 @@ export const useStore = create<GameState>()(
                 activities: state.activities,
                 unlockedPolicies: state.unlockedPolicies,
                 unlockedMilestones: state.unlockedMilestones,
+                unlockedAngelUpgrades: state.unlockedAngelUpgrades,
                 highestLifetimeEarnings: state.highestLifetimeEarnings,
                 currentRankId: state.currentRankId,
                 lastSaveTime: state.lastSaveTime,

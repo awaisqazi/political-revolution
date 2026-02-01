@@ -37,12 +37,12 @@ export function PolicyList() {
         <div className="space-y-4">
             {/* Section Header */}
             <div className="flex items-center gap-4">
-                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-700/50 to-transparent" />
-                <span className="text-sm text-amber-500 uppercase tracking-wider flex items-center gap-2">
-                    <span>📜</span>
-                    Campaign Policies
+                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
+                <span className="text-sm text-blue-400 uppercase tracking-wider flex items-center gap-2 font-bold">
+                    <span>💳</span>
+                    Cash Policies
                 </span>
-                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-700/50 to-transparent" />
+                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
             </div>
 
             {/* Policy Cards */}
@@ -61,8 +61,8 @@ export function PolicyList() {
                                 className={`
                                     relative overflow-hidden rounded-xl p-4
                                     ${isUnlocked
-                                        ? 'bg-gradient-to-br from-green-900/30 to-green-950/30 border border-green-700/30'
-                                        : 'bg-gradient-to-br from-amber-900/20 to-slate-900/40 border border-amber-700/20'
+                                        ? 'bg-gradient-to-br from-indigo-900/30 to-blue-900/30 border border-indigo-500/30'
+                                        : 'bg-gradient-to-br from-slate-800 to-slate-900/80 border border-slate-700'
                                     }
                                 `}
                             >
@@ -72,7 +72,7 @@ export function PolicyList() {
                                 {/* Header */}
                                 <div className="flex items-start justify-between mb-2">
                                     <div>
-                                        <h3 className={`font-semibold ${isUnlocked ? 'text-green-400' : 'text-amber-300'}`}>
+                                        <h3 className={`font-semibold ${isUnlocked ? 'text-indigo-300' : 'text-blue-200'}`}>
                                             {policy.name}
                                         </h3>
                                         <p className="text-xs text-slate-400 mt-0.5">
@@ -80,7 +80,7 @@ export function PolicyList() {
                                         </p>
                                     </div>
                                     {isUnlocked && (
-                                        <span className="text-green-400 text-lg">✓</span>
+                                        <span className="text-indigo-400 text-lg">✓</span>
                                     )}
                                 </div>
 
@@ -109,8 +109,8 @@ export function PolicyList() {
                                             w-full py-2 px-4 rounded-lg font-medium text-sm
                                             transition-all duration-200
                                             ${canAfford
-                                                ? 'bg-gradient-to-r from-amber-600 to-amber-700 text-white hover:from-amber-500 hover:to-amber-600 shadow-lg shadow-amber-900/30'
-                                                : 'bg-slate-800/50 text-slate-500 cursor-not-allowed'
+                                                ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/30'
+                                                : 'bg-slate-700/50 text-slate-500 cursor-not-allowed'
                                             }
                                         `}
                                         whileHover={canAfford ? { scale: 1.02 } : {}}

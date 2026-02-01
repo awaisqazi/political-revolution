@@ -16,8 +16,9 @@ import { WelcomeModal } from './components/WelcomeModal';
 import { NewsTicker } from './components/NewsTicker';
 import { UnlockNotification } from './components/UnlockNotification';
 import { BuyModeToggle } from './components/BuyModeToggle';
+import { CapitalUpgradeList } from './components/CapitalUpgradeList';
 
-type TabType = 'activities' | 'policies' | 'log';
+type TabType = 'activities' | 'policies' | 'capital' | 'log';
 
 function App() {
   const [isPrestigeOpen, setIsPrestigeOpen] = useState(false);
@@ -61,6 +62,7 @@ function App() {
   const tabs: { id: TabType; label: string; icon: string }[] = [
     { id: 'activities', label: 'Outreach', icon: '📢' },
     { id: 'policies', label: 'Policies', icon: '📜' },
+    { id: 'capital', label: 'Capital', icon: '🏛️' },
     { id: 'log', label: 'Log', icon: '📋' },
   ];
 
@@ -149,7 +151,9 @@ function App() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${activeTab === tab.id
-                    ? 'bg-blue-600 text-white shadow-lg'
+                    ? tab.id === 'capital'
+                      ? 'bg-amber-600 text-white shadow-lg shadow-amber-900/20'
+                      : 'bg-blue-600 text-white shadow-lg'
                     : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
                     }`}
                 >
@@ -195,6 +199,28 @@ function App() {
                   exit={{ opacity: 0, y: -10 }}
                 >
                   <PolicyList />
+                </motion.div>
+              )}
+
+              {activeTab === 'capital' && (
+                <motion.div
+                  key="capital"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                >
+                  <CapitalUpgradeList />
+                </motion.div>
+              )}
+
+              {activeTab === 'capital' && (
+                <motion.div
+                  key="capital"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                >
+                  <CapitalUpgradeList />
                 </motion.div>
               )}
 
