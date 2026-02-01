@@ -100,6 +100,34 @@ export function getActivityCost(baseCost: number, owned: number): number {
     return Math.floor(baseCost * Math.pow(ACQUIRING_MULTIPLIER, owned));
 }
 
+// Calculate total cost to buy N activities (geometric series)
+export function getBulkPurchaseCost(baseCost: number, owned: number, quantity: number): number {
+    if (quantity <= 0) return 0;
+    // Sum of geometric series: baseCost * r^owned * (1 - r^n) / (1 - r)
+    // where r = ACQUIRING_MULTIPLIER, n = quantity
+    const r = ACQUIRING_MULTIPLIER;
+    const firstTermCost = baseCost * Math.pow(r, owned);
+    const totalCost = firstTermCost * (1 - Math.pow(r, quantity)) / (1 - r);
+    return Math.floor(totalCost);
+}
+
+// Calculate max affordable quantity given available funds
+export function getMaxAffordable(baseCost: number, owned: number, funds: number): number {
+    if (funds <= 0) return 0;
+    // Binary search for max affordable
+    let low = 0;
+    let high = 10000; // Reasonable upper bound
+    while (low < high) {
+        const mid = Math.ceil((low + high + 1) / 2);
+        if (getBulkPurchaseCost(baseCost, owned, mid) <= funds) {
+            low = mid;
+        } else {
+            high = mid - 1;
+        }
+    }
+    return low;
+}
+
 // Calculate manager cost
 export function getManagerCost(baseCost: number): number {
     return Math.floor(baseCost * MANAGER_COST_MULTIPLIER);

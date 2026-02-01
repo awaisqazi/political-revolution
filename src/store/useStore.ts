@@ -40,6 +40,8 @@ export interface NewsEvent {
     timestamp: number;
 }
 
+export type BuyMode = 'x1' | 'x10' | 'x100' | 'next' | 'max';
+
 export interface GameState {
     // Core resources
     funds: number;
@@ -69,6 +71,9 @@ export interface GameState {
     // News events
     activeEvent: NewsEvent | null;
 
+    // Buy mode
+    buyMode: BuyMode;
+
     // Actions
     canvass: () => void;
     buyActivity: (id: string) => void;
@@ -81,6 +86,7 @@ export interface GameState {
     dismissNotification: () => void;
     triggerEvent: (event: Omit<NewsEvent, 'id' | 'timestamp'>) => void;
     calculateOfflineProgress: () => { earnings: number; seconds: number };
+    cycleBuyMode: () => void;
 }
 
 // Initialize activities state
@@ -147,6 +153,7 @@ export const useStore = create<GameState>()(
             lastSaveTime: Date.now(),
             totalClicks: 0,
             activeEvent: null,
+            buyMode: 'x1',
 
             // Canvass action - fills momentum bar AND EARNS FUNDS
             canvass: () => {
@@ -446,6 +453,15 @@ export const useStore = create<GameState>()(
                     activeEvent: { ...event, id: `event-${Date.now()}`, timestamp: Date.now() },
                     popularity: Math.max(0, Math.min(2.0, state.popularity + event.popularityChange)),
                 }));
+            },
+
+            cycleBuyMode: () => {
+                set(state => {
+                    const modes: BuyMode[] = ['x1', 'x10', 'x100', 'next', 'max'];
+                    const currentIndex = modes.indexOf(state.buyMode);
+                    const nextIndex = (currentIndex + 1) % modes.length;
+                    return { buyMode: modes[nextIndex] };
+                });
             },
         }),
         {

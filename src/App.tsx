@@ -15,6 +15,7 @@ import { PolicyList } from './components/PolicyList';
 import { WelcomeModal } from './components/WelcomeModal';
 import { NewsTicker } from './components/NewsTicker';
 import { UnlockNotification } from './components/UnlockNotification';
+import { BuyModeToggle } from './components/BuyModeToggle';
 
 type TabType = 'activities' | 'policies' | 'log';
 
@@ -165,18 +166,24 @@ function App() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="grid gap-4 sm:grid-cols-2"
                 >
-                  {ACTIVITIES.map((activity, index) => (
-                    <motion.div
-                      key={activity.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.03 }}
-                    >
-                      <ActivityCard activity={activity} />
-                    </motion.div>
-                  ))}
+                  {/* Buy Mode Toggle */}
+                  <div className="flex justify-end mb-4">
+                    <BuyModeToggle />
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {ACTIVITIES.map((activity, index) => (
+                      <motion.div
+                        key={activity.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.03 }}
+                      >
+                        <ActivityCard activity={activity} />
+                      </motion.div>
+                    ))}
+                  </div>
                 </motion.div>
               )}
 

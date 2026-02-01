@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { useStore } from '../store/useStore';
 import type { ActivityConfig } from '../config/activities';
-import { getActivityCost, getManagerCost } from '../config/activities';
+import { getActivityCost, getManagerCost, getBulkPurchaseCost, getMaxAffordable } from '../config/activities';
 import { formatNumber } from '../config/gameConfig';
 import { getPolicyById } from '../config/policies';
 import { formatMoney } from '../utils/formatting';
@@ -18,10 +18,28 @@ export function ActivityCard({ activity }: ActivityCardProps) {
     const buyActivity = useStore(state => state.buyActivity);
     const hireManager = useStore(state => state.hireManager);
     const runActivity = useStore(state => state.runActivity);
+    const buyMode = useStore(state => state.buyMode);
 
-    const cost = getActivityCost(activity.baseCost, activityState.owned);
+    // Calculate buy quantity based on mode
+    const nextUnlock = getNextUnlock(activity.id, activityState.owned);
+    const nextThreshold = nextUnlock?.threshold ?? activityState.owned + 1;
+    const toNextMilestone = Math.max(1, nextThreshold - activityState.owned);
+
+    const getBuyQuantity = (): number => {
+        switch (buyMode) {
+            case 'x1': return 1;
+            case 'x10': return 10;
+            case 'x100': return 100;
+            case 'next': return toNextMilestone;
+            case 'max': return getMaxAffordable(activity.baseCost, activityState.owned, funds) || 1;
+        }
+    };
+
+    const buyQuantity = getBuyQuantity();
+    const bulkCost = getBulkPurchaseCost(activity.baseCost, activityState.owned, buyQuantity);
+    const canAffordBulk = funds >= bulkCost && bulkCost > 0;
+
     const managerCost = getManagerCost(activity.baseCost);
-    const canAfford = funds >= cost;
     const canAffordManager = funds >= managerCost && activityState.owned > 0 && !activityState.managerHired;
 
     // Can manually run if: owned, not managed, and not currently running
@@ -40,7 +58,6 @@ export function ActivityCard({ activity }: ActivityCardProps) {
     const revenuePerCycle = activity.baseRevenue * activityState.owned * policyMultiplier;
 
     // Milestone system
-    const nextUnlock = getNextUnlock(activity.id, activityState.owned);
     const speedMultiplier = getMilestoneSpeedMultiplier(activity.id, activityState.owned);
     const effectiveTime = activity.baseTime / speedMultiplier;
     const effectiveProgressPercent = (activityState.progress / effectiveTime) * 100;
@@ -54,6 +71,17 @@ export function ActivityCard({ activity }: ActivityCardProps) {
     const milestoneProgress = nextUnlock
         ? ((activityState.owned - prevThreshold) / (nextUnlock.threshold - prevThreshold)) * 100
         : 100;
+
+    // Buy button label based on mode
+    const getBuyLabel = (): string => {
+        switch (buyMode) {
+            case 'x1': return `Buy $${formatNumber(bulkCost)}`;
+            case 'x10': return `Buy x10 $${formatNumber(bulkCost)}`;
+            case 'x100': return `Buy x100 $${formatNumber(bulkCost)}`;
+            case 'next': return `Next (${buyQuantity}) $${formatNumber(bulkCost)}`;
+            case 'max': return `Max (${buyQuantity}) $${formatNumber(bulkCost)}`;
+        }
+    };
 
     return (
         <motion.div
@@ -149,16 +177,22 @@ export function ActivityCard({ activity }: ActivityCardProps) {
             <div className="flex gap-2">
                 {/* Buy Button */}
                 <motion.button
-                    onClick={(e) => { e.stopPropagation(); buyActivity(activity.id); }}
-                    disabled={!canAfford}
-                    className={`flex-1 py-2 px-3 rounded-lg font-medium text-sm transition-all ${canAfford
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        // Buy the calculated quantity
+                        for (let i = 0; i < buyQuantity && funds >= getActivityCost(activity.baseCost, activityState.owned + i); i++) {
+                            buyActivity(activity.id);
+                        }
+                    }}
+                    disabled={!canAffordBulk}
+                    className={`flex-1 py-2 px-3 rounded-lg font-medium text-sm transition-all ${canAffordBulk
                         ? 'bg-blue-600 hover:bg-blue-500 text-white'
                         : 'bg-slate-700/50 text-slate-500 cursor-not-allowed'
                         }`}
-                    whileHover={canAfford ? { scale: 1.02 } : {}}
-                    whileTap={canAfford ? { scale: 0.98 } : {}}
+                    whileHover={canAffordBulk ? { scale: 1.02 } : {}}
+                    whileTap={canAffordBulk ? { scale: 0.98 } : {}}
                 >
-                    Buy ${formatNumber(cost)}
+                    {getBuyLabel()}
                 </motion.button>
 
                 {/* Manager Button */}
@@ -180,10 +214,10 @@ export function ActivityCard({ activity }: ActivityCardProps) {
             </div>
 
             {/* Locked overlay for unowned activities */}
-            {activityState.owned === 0 && !canAfford && (
+            {activityState.owned === 0 && !canAffordBulk && (
                 <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center rounded-2xl">
                     <span className="text-slate-400 text-sm">
-                        🔒 ${formatNumber(cost)} to unlock
+                        🔒 ${formatNumber(getBulkPurchaseCost(activity.baseCost, 0, 1))} to unlock
                     </span>
                 </div>
             )}
