@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameLoop } from './hooks/useGameLoop';
 import { useNewsEvents } from './hooks/useNewsEvents';
+import { useDilemmas } from './hooks/useDilemmas';
 import { AudioProvider } from './hooks/useAudio';
 import { useStore } from './store/useStore';
 import { ACTIVITIES } from './config/activities';
@@ -27,6 +28,7 @@ import { UtopiaModal } from './components/UtopiaModal';
 import { ResetGameModal } from './components/ResetGameModal';
 import { SettingsModal } from './components/SettingsModal';
 import { TutorialOverlay } from './components/TutorialOverlay';
+import { DilemmaModal } from './components/DilemmaModal';
 
 type TabType = 'activities' | 'policies' | 'capital' | 'log';
 
@@ -51,9 +53,25 @@ function App() {
   const nextRank = getNextRank(currentRankId);
   const currentStage = STAGES[currentStageIndex];
 
+  // Track stage changes for celebration effect
+  const [showCelebration, setShowCelebration] = useState(false);
+  const prevStageIndex = useRef(currentStageIndex);
+
   // Start game loops
   useGameLoop();
   useNewsEvents();
+  useDilemmas();  // Phase 9: Interactive dilemmas
+
+  // Stage promotion celebration effect
+  useEffect(() => {
+    if (currentStageIndex > prevStageIndex.current) {
+      setShowCelebration(true);
+      const timer = setTimeout(() => setShowCelebration(false), 2000);
+      prevStageIndex.current = currentStageIndex;
+      return () => clearTimeout(timer);
+    }
+    prevStageIndex.current = currentStageIndex;
+  }, [currentStageIndex]);
 
   // Check for offline progress on mount
   useEffect(() => {
@@ -98,7 +116,50 @@ function App() {
 
   return (
     <AudioProvider>
-      <div className="min-h-screen flex flex-col">
+      <div className={`min-h-screen flex flex-col transition-colors duration-1000 ${currentStage?.backgroundStyle || 'bg-slate-900'}`}>
+        {/* Stage Promotion Celebration Overlay */}
+        <AnimatePresence>
+          {showCelebration && (
+            <motion.div
+              className="fixed inset-0 z-[100] pointer-events-none overflow-hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              {/* Confetti particles */}
+              {[...Array(50)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="absolute w-3 h-3 rounded-full"
+                  style={{
+                    left: `${Math.random() * 100}%`,
+                    backgroundColor: ['#fbbf24', '#f97316', '#ef4444', '#8b5cf6', '#3b82f6', '#10b981'][Math.floor(Math.random() * 6)],
+                  }}
+                  initial={{ y: -20, opacity: 1, rotate: 0, scale: Math.random() * 0.5 + 0.5 }}
+                  animate={{
+                    y: window.innerHeight + 100,
+                    opacity: [1, 1, 0],
+                    rotate: Math.random() * 720 - 360,
+                    x: Math.random() * 200 - 100,
+                  }}
+                  transition={{
+                    duration: 2 + Math.random(),
+                    ease: 'easeOut',
+                    delay: Math.random() * 0.5,
+                  }}
+                />
+              ))}
+              {/* Flash overlay */}
+              <motion.div
+                className="absolute inset-0 bg-white"
+                initial={{ opacity: 0.8 }}
+                animate={{ opacity: 0 }}
+                transition={{ duration: 0.5 }}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* News Ticker - Top */}
         <NewsTicker />
 
@@ -400,6 +461,9 @@ function App() {
 
         {/* News Events */}
         <NewsEvent />
+
+        {/* Phase 9: Political Dilemmas */}
+        <DilemmaModal />
 
         {/* Milestone Notifications */}
         <UnlockNotification />

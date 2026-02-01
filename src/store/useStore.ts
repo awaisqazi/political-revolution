@@ -12,6 +12,7 @@ import {
 } from '../config/unlocks';
 import { getPowerStructureMultiplier, getPowerStructureById } from '../config/powerStructures';
 import { STAGES, getMoraleMultiplier, canPromoteStage, type StageId } from '../config/stages';
+import type { Dilemma } from '../config/dilemmas';
 import {
     STARTING_FUNDS,
     MOMENTUM_CLICK_INCREMENT,
@@ -99,6 +100,10 @@ export interface GameState {
     // Phase 8: Tutorial
     tutorialStep: number; // 0 = not started, 1-4 = in tutorial, 5 = completed
 
+    // Phase 9: Dilemmas
+    activeDilemma: Dilemma | null;
+    seenDilemmas: string[]; // Track which dilemmas have been seen this run
+
     // Actions
     canvass: () => void;
     buyActivity: (id: string) => void;
@@ -130,6 +135,11 @@ export interface GameState {
     // Phase 8: Tutorial actions
     advanceTutorial: () => void;
     completeTutorial: () => void;
+
+    // Phase 9: Dilemma actions
+    triggerDilemma: (dilemma: Dilemma) => void;
+    resolveDilemma: (choiceKey: 'choiceA' | 'choiceB') => void;
+    dismissDilemma: () => void;
 }
 
 // Initialize activities state
@@ -206,6 +216,9 @@ const DEFAULT_STATE: Partial<GameState> = {
     miniGameActivityId: null,
     runId: 0,
     tutorialStep: 0,
+    // Phase 9: Dilemmas
+    activeDilemma: null,
+    seenDilemmas: [],
 };
 
 export const useStore = create<GameState>()(
@@ -409,6 +422,9 @@ export const useStore = create<GameState>()(
                     lastSaveTime: Date.now(),
                     runId: Date.now(), // Force UI refresh
                     tutorialStep: 0, // Reset tutorial for new game
+                    // Phase 9: Reset dilemmas
+                    activeDilemma: null,
+                    seenDilemmas: [],
                 });
             },
 
@@ -689,6 +705,39 @@ export const useStore = create<GameState>()(
             completeTutorial: () => {
                 set({ tutorialStep: 99 }); // Set high to mark fully complete
             },
+
+            // Phase 9: Dilemma actions
+            triggerDilemma: (dilemma: Dilemma) => {
+                const state = get();
+                // Only check if a dilemma is already active (hook handles seen tracking with recycling)
+                if (state.activeDilemma) return;
+                set({
+                    activeDilemma: dilemma,
+                    seenDilemmas: state.seenDilemmas.includes(dilemma.id)
+                        ? state.seenDilemmas
+                        : [...state.seenDilemmas, dilemma.id],
+                });
+            },
+
+            resolveDilemma: (choiceKey: 'choiceA' | 'choiceB') => {
+                const state = get();
+                if (!state.activeDilemma) return;
+
+                const choice = state.activeDilemma[choiceKey];
+                const effects = choice.effects;
+
+                set(state => ({
+                    activeDilemma: null,
+                    funds: state.funds + (effects.funds || 0),
+                    popularity: Math.max(0, Math.min(2.0, state.popularity + (effects.popularity || 0))),
+                    happiness: Math.max(0, Math.min(100, state.happiness + (effects.happiness || 0))),
+                    volunteers: Math.max(0, state.volunteers + (effects.volunteers || 0)),
+                }));
+            },
+
+            dismissDilemma: () => {
+                set({ activeDilemma: null });
+            },
         }),
         {
             name: 'political-revolution-save',
@@ -711,6 +760,7 @@ export const useStore = create<GameState>()(
                 totalClicks: state.totalClicks,
                 runId: state.runId,
                 tutorialStep: state.tutorialStep,
+                seenDilemmas: state.seenDilemmas,
             }),
         }
     )

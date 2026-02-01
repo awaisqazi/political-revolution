@@ -3,14 +3,21 @@
 
 export type StageId = 'activist' | 'organizer' | 'city-council' | 'state-rep' | 'congressman' | 'senator' | 'president';
 
+export type ThemeCategory = 'city' | 'state' | 'national';
+
 export interface GameStage {
     id: StageId;
     name: string;
     winThreshold: number;   // Lifetime earnings required to win this stage
     happinessRequired: number; // Minimum happiness to advance
-    colorTheme: string;     // For UI theming
+    colorTheme: string;     // For UI theming (legacy)
     emoji: string;
     flavorText: string;
+    // Phase 9: Visual Theming
+    themeCategory: ThemeCategory;     // For dilemma filtering
+    backgroundStyle: string;          // Tailwind classes for main bg
+    accentColor: string;              // Base accent color (e.g., 'blue', 'purple', 'rose')
+    accentGradient: string;           // Gradient classes for buttons
 }
 
 export const STAGES: GameStage[] = [
@@ -22,6 +29,10 @@ export const STAGES: GameStage[] = [
         colorTheme: 'slate',
         emoji: '✊',
         flavorText: 'Every movement starts with one voice',
+        themeCategory: 'city',
+        backgroundStyle: 'bg-slate-900',
+        accentColor: 'blue',
+        accentGradient: 'from-blue-600 to-cyan-500',
     },
     {
         id: 'organizer',
@@ -31,6 +42,10 @@ export const STAGES: GameStage[] = [
         colorTheme: 'blue',
         emoji: '📢',
         flavorText: 'Building power block by block',
+        themeCategory: 'city',
+        backgroundStyle: 'bg-slate-900',
+        accentColor: 'blue',
+        accentGradient: 'from-blue-600 to-cyan-500',
     },
     {
         id: 'city-council',
@@ -40,6 +55,10 @@ export const STAGES: GameStage[] = [
         colorTheme: 'cyan',
         emoji: '🏙️',
         flavorText: 'Local politics is where change begins',
+        themeCategory: 'city',
+        backgroundStyle: 'bg-slate-900',
+        accentColor: 'blue',
+        accentGradient: 'from-blue-600 to-cyan-500',
     },
     {
         id: 'state-rep',
@@ -49,6 +68,10 @@ export const STAGES: GameStage[] = [
         colorTheme: 'indigo',
         emoji: '⭐',
         flavorText: 'The capitol awaits your arrival',
+        themeCategory: 'state',
+        backgroundStyle: 'bg-indigo-950',
+        accentColor: 'purple',
+        accentGradient: 'from-purple-600 to-violet-500',
     },
     {
         id: 'congressman',
@@ -58,6 +81,10 @@ export const STAGES: GameStage[] = [
         colorTheme: 'violet',
         emoji: '🏛️',
         flavorText: 'Representing the people in Washington',
+        themeCategory: 'state',
+        backgroundStyle: 'bg-indigo-950',
+        accentColor: 'purple',
+        accentGradient: 'from-purple-600 to-violet-500',
     },
     {
         id: 'senator',
@@ -67,6 +94,10 @@ export const STAGES: GameStage[] = [
         colorTheme: 'purple',
         emoji: '🎖️',
         flavorText: 'A national voice for the movement',
+        themeCategory: 'national',
+        backgroundStyle: 'bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950/30',
+        accentColor: 'rose',
+        accentGradient: 'from-rose-600 to-amber-500',
     },
     {
         id: 'president',
@@ -76,6 +107,10 @@ export const STAGES: GameStage[] = [
         colorTheme: 'rose',
         emoji: '🇺🇸',
         flavorText: 'The highest office. The biggest responsibility.',
+        themeCategory: 'national',
+        backgroundStyle: 'bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950/30',
+        accentColor: 'rose',
+        accentGradient: 'from-rose-600 to-amber-500',
     },
 ];
 
