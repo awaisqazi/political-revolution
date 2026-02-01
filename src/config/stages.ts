@@ -5,6 +5,15 @@ export type StageId = 'activist' | 'organizer' | 'city-council' | 'state-rep' | 
 
 export type ThemeCategory = 'city' | 'state' | 'national';
 
+export interface Opponent {
+    name: string;
+    title: string;
+    imagePrompt: string;
+    description: string;
+    health: number;
+    damagePerTurn: number;
+}
+
 export interface GameStage {
     id: StageId;
     name: string;
@@ -18,6 +27,8 @@ export interface GameStage {
     backgroundStyle: string;          // Tailwind classes for main bg
     accentColor: string;              // Base accent color (e.g., 'blue', 'purple', 'rose')
     accentGradient: string;           // Gradient classes for buttons
+    // Phase 11: Debate Opponent
+    opponent?: Opponent;              // The opponent to defeat in the debate
 }
 
 export const STAGES: GameStage[] = [
@@ -33,6 +44,14 @@ export const STAGES: GameStage[] = [
         backgroundStyle: 'bg-slate-900/60',
         accentColor: 'blue',
         accentGradient: 'from-blue-600 to-cyan-500',
+        opponent: {
+            name: 'Councilman Crumb',
+            title: "The Landlord's Puppet",
+            imagePrompt: 'Smug middle-aged politician in expensive suit, slicked back hair, dismissive expression',
+            description: 'A career politician backed by real estate developers who has never met a tenant he couldn\'t evict.',
+            health: 50,
+            damagePerTurn: 8,
+        },
     },
     {
         id: 'organizer',
@@ -46,6 +65,14 @@ export const STAGES: GameStage[] = [
         backgroundStyle: 'bg-slate-900/60',
         accentColor: 'blue',
         accentGradient: 'from-blue-600 to-cyan-500',
+        opponent: {
+            name: 'Commissioner Cline',
+            title: "The Developer's Ally",
+            imagePrompt: 'Stern woman in power suit with pearl necklace, cold calculating eyes, forced smile',
+            description: 'She\'s approved every luxury condo project while blocking affordable housing for a decade.',
+            health: 75,
+            damagePerTurn: 10,
+        },
     },
     {
         id: 'city-council',
@@ -59,6 +86,14 @@ export const STAGES: GameStage[] = [
         backgroundStyle: 'bg-slate-900/60',
         accentColor: 'blue',
         accentGradient: 'from-blue-600 to-cyan-500',
+        opponent: {
+            name: 'Mayor Morton',
+            title: 'The Machine Politician',
+            imagePrompt: 'Heavyset older man with American flag pin, fake tan, pointing aggressively at camera',
+            description: 'Twenty years in office. Zero progress. Infinite corruption.',
+            health: 100,
+            damagePerTurn: 12,
+        },
     },
     {
         id: 'state-rep',
@@ -72,6 +107,14 @@ export const STAGES: GameStage[] = [
         backgroundStyle: 'bg-indigo-950/60',
         accentColor: 'purple',
         accentGradient: 'from-purple-600 to-violet-500',
+        opponent: {
+            name: 'Senator Stalemate',
+            title: 'The Party Insider',
+            imagePrompt: 'Elderly senator in navy suit, patronizing smile, surrounded by lobbyists in shadows',
+            description: 'He\'s been "working across the aisle" for 30 years without passing a single progressive bill.',
+            health: 125,
+            damagePerTurn: 14,
+        },
     },
     {
         id: 'congressman',
@@ -85,6 +128,14 @@ export const STAGES: GameStage[] = [
         backgroundStyle: 'bg-indigo-950/60',
         accentColor: 'purple',
         accentGradient: 'from-purple-600 to-violet-500',
+        opponent: {
+            name: 'Governor Gridlock',
+            title: 'The Status Quo Defender',
+            imagePrompt: 'Polished politician in expensive watch, rehearsed gestures, empty eyes behind glasses',
+            description: 'Vetoed healthcare, education, and climate bills. Approved every corporate tax break.',
+            health: 150,
+            damagePerTurn: 16,
+        },
     },
     {
         id: 'senator',
@@ -98,6 +149,14 @@ export const STAGES: GameStage[] = [
         backgroundStyle: 'bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950/30',
         accentColor: 'rose',
         accentGradient: 'from-rose-600 to-amber-500',
+        opponent: {
+            name: 'President Titan',
+            title: 'The Billionaire Incumbent',
+            imagePrompt: 'Imposing figure behind presidential podium, golden cufflinks, smug billionaire energy',
+            description: 'Net worth: $50 billion. Tax paid last year: $750. Democracy is just a business expense to him.',
+            health: 200,
+            damagePerTurn: 18,
+        },
     },
     {
         id: 'president',

@@ -8,7 +8,7 @@ export function StageIndicator() {
     const currentStageIndex = useStore(state => state.currentStageIndex);
     const lifetimeEarnings = useStore(state => state.lifetimeEarnings);
     const happiness = useStore(state => state.happiness);
-    const promoteStage = useStore(state => state.promoteStage);
+    const startDebate = useStore(state => state.startDebate);
 
     const currentStage = STAGES[currentStageIndex];
     const nextStage = STAGES[currentStageIndex + 1];
@@ -128,18 +128,18 @@ export function StageIndicator() {
                         </div>
                     </div>
 
-                    {/* Promote Button */}
+                    {/* Debate Button */}
                     {canPromote && (
                         <motion.button
                             id="win-election-button"
-                            onClick={() => { promoteStage(); play('stageWin'); }}
-                            className="w-full py-2 mt-2 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 text-white font-semibold text-sm hover:from-emerald-500 hover:to-green-500 transition-all shadow-lg shadow-emerald-900/30"
+                            onClick={() => { startDebate(); play('buy'); }}
+                            className="w-full py-2 mt-2 rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 text-white font-semibold text-sm hover:from-amber-500 hover:to-orange-500 transition-all shadow-lg shadow-amber-900/30"
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                         >
-                            🗳️ Win Election → {nextStage.name}
+                            🎤 Enter Debate → {nextStage.name}
                         </motion.button>
                     )}
                 </div>

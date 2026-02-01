@@ -11,7 +11,7 @@ import {
     type MilestoneNotification,
 } from '../config/unlocks';
 import { getPowerStructureMultiplier, getPowerStructureById } from '../config/powerStructures';
-import { STAGES, getMoraleMultiplier, canPromoteStage, type StageId } from '../config/stages';
+import { STAGES, getMoraleMultiplier, canPromoteStage, type StageId, type Opponent } from '../config/stages';
 import type { Dilemma } from '../config/dilemmas';
 import {
     STARTING_FUNDS,
@@ -108,6 +108,10 @@ export interface GameState {
     activeDilemma: Dilemma | null;
     seenDilemmas: string[]; // Track which dilemmas have been seen this run
 
+    // Phase 11: Debate Battles
+    activeDebate: boolean;
+    currentOpponent: Opponent | null;
+
     // Actions
     canvass: () => void;
     buyActivity: (id: string) => void;
@@ -148,6 +152,11 @@ export interface GameState {
     // Phase 10: Memory actions
     unlockMemory: (id: string) => void;
     dismissMemoryNotification: () => void;
+
+    // Phase 11: Debate actions
+    startDebate: () => void;
+    winDebate: () => void;
+    loseDebate: () => void;
 }
 
 // Initialize activities state
@@ -229,6 +238,9 @@ const DEFAULT_STATE: Partial<GameState> = {
     // Phase 9: Dilemmas
     activeDilemma: null,
     seenDilemmas: [],
+    // Phase 11: Debates
+    activeDebate: false,
+    currentOpponent: null,
 };
 
 export const useStore = create<GameState>()(
@@ -772,6 +784,54 @@ export const useStore = create<GameState>()(
                 set(state => ({
                     pendingMemoryUnlocks: state.pendingMemoryUnlocks.slice(1),
                 }));
+            },
+
+            // Phase 11: Debate actions
+            startDebate: () => {
+                const state = get();
+                const currentStage = STAGES[state.currentStageIndex];
+                if (!currentStage?.opponent) return;
+
+                // Check if eligible
+                if (!canPromoteStage(state.currentStageIndex, state.lifetimeEarnings, state.happiness)) {
+                    return;
+                }
+
+                set({
+                    activeDebate: true,
+                    currentOpponent: currentStage.opponent,
+                });
+            },
+
+            winDebate: () => {
+                const state = get();
+                const nextIndex = state.currentStageIndex + 1;
+
+                if (nextIndex >= STAGES.length) {
+                    // Final stage - close debate
+                    set({
+                        activeDebate: false,
+                        currentOpponent: null,
+                    });
+                    return;
+                }
+
+                // Actually promote the stage
+                set({
+                    currentStageIndex: nextIndex,
+                    activeDebate: false,
+                    currentOpponent: null,
+                    lastSaveTime: Date.now(),
+                });
+            },
+
+            loseDebate: () => {
+                // Penalty: Reset happiness to 45% and close debate
+                set({
+                    happiness: 45,
+                    activeDebate: false,
+                    currentOpponent: null,
+                });
             },
         }),
         {

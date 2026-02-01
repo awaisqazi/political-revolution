@@ -32,6 +32,7 @@ import { DilemmaModal } from './components/DilemmaModal';
 import { BackgroundLayer } from './components/BackgroundLayer';
 import { ScrapbookModal } from './components/ScrapbookModal';
 import { MemoryNotification } from './components/MemoryNotification';
+import { DebateModal } from './components/DebateModal';
 
 type TabType = 'activities' | 'policies' | 'capital' | 'log';
 
@@ -480,6 +481,9 @@ function App() {
 
         {/* Phase 9: Political Dilemmas */}
         <DilemmaModal />
+
+        {/* Phase 11: Debate Battles */}
+        <DebateModal />
 
         {/* Milestone Notifications */}
         <UnlockNotification />
