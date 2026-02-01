@@ -2,9 +2,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../store/useStore';
 
 const IMAGES = [
-    '/images/bg-city.jpg',
-    '/images/bg-state.jpg',
-    '/images/bg-national.jpg',
+    `${import.meta.env.BASE_URL}images/bg-city.jpg`,
+    `${import.meta.env.BASE_URL}images/bg-state.jpg`,
+    `${import.meta.env.BASE_URL}images/bg-national.jpg`,
 ];
 
 export const BackgroundLayer = () => {
