@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { useStore } from '../store/useStore';
+import { useAudio } from '../hooks/useAudio';
 import type { ActivityConfig } from '../config/activities';
 import { getActivityCost, getManagerCost, getBulkPurchaseCost, getMaxAffordable } from '../config/activities';
 import { formatNumber } from '../config/gameConfig';
@@ -19,6 +20,7 @@ export function ActivityCard({ activity }: ActivityCardProps) {
     const hireManager = useStore(state => state.hireManager);
     const runActivity = useStore(state => state.runActivity);
     const buyMode = useStore(state => state.buyMode);
+    const { play } = useAudio();
 
     // Calculate buy quantity based on mode
     const nextUnlock = getNextUnlock(activity.id, activityState.owned);
@@ -180,9 +182,12 @@ export function ActivityCard({ activity }: ActivityCardProps) {
                     onClick={(e) => {
                         e.stopPropagation();
                         // Buy the calculated quantity
+                        let purchased = 0;
                         for (let i = 0; i < buyQuantity && funds >= getActivityCost(activity.baseCost, activityState.owned + i); i++) {
                             buyActivity(activity.id);
+                            purchased++;
                         }
+                        if (purchased > 0) play('buy');
                     }}
                     disabled={!canAffordBulk}
                     className={`flex-1 py-2 px-3 rounded-lg font-medium text-sm transition-all ${canAffordBulk
@@ -198,7 +203,7 @@ export function ActivityCard({ activity }: ActivityCardProps) {
                 {/* Manager Button */}
                 {!activityState.managerHired && activityState.owned > 0 && (
                     <motion.button
-                        onClick={(e) => { e.stopPropagation(); hireManager(activity.id); }}
+                        onClick={(e) => { e.stopPropagation(); hireManager(activity.id); play('buy'); }}
                         disabled={!canAffordManager}
                         className={`py-2 px-3 rounded-lg font-medium text-sm transition-all ${canAffordManager
                             ? 'bg-emerald-600 hover:bg-emerald-500 text-white'

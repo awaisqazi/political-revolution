@@ -1,12 +1,21 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../store/useStore';
+import { useAudio } from '../hooks/useAudio';
 import { useEffect } from 'react';
 
 export function UnlockNotification() {
     const pendingNotifications = useStore(state => state.pendingNotifications);
     const dismissNotification = useStore(state => state.dismissNotification);
+    const { play } = useAudio();
 
     const currentNotification = pendingNotifications[0];
+
+    // Play unlock sound when notification appears
+    useEffect(() => {
+        if (currentNotification) {
+            play('unlock');
+        }
+    }, [currentNotification, play]);
 
     // Auto-dismiss after 3 seconds
     useEffect(() => {

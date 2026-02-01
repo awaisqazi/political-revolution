@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../store/useStore';
+import { useAudio } from '../hooks/useAudio';
 import { MomentumBar } from './MomentumBar';
 import { formatMoney } from '../utils/formatting';
 
@@ -14,6 +15,7 @@ interface FloatingNumber {
 export function CanvassButton() {
     const canvass = useStore(state => state.canvass);
     const totalClicks = useStore(state => state.totalClicks);
+    const { play } = useAudio();
     const [floatingNumbers, setFloatingNumbers] = useState<FloatingNumber[]>([]);
 
     const handleCanvass = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
@@ -36,10 +38,13 @@ export function CanvassButton() {
 
         // Trigger the actual canvass action
         canvass();
-    }, [canvass]);
+
+        // Play sound effect
+        play('canvass');
+    }, [canvass, play]);
 
     return (
-        <div className="glass-card p-6">
+        <div id="canvass-button" className="glass-card p-6">
             {/* Header */}
             <div className="text-center mb-4">
                 <h2 className="text-lg font-semibold text-slate-200">
@@ -108,7 +113,7 @@ export function CanvassButton() {
             </div>
 
             {/* Momentum Bar */}
-            <div className="mt-6">
+            <div id="momentum-bar" className="mt-6">
                 <MomentumBar />
             </div>
         </div>

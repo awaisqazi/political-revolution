@@ -9,7 +9,6 @@ import { getPowerStructureMultiplier } from '../config/powerStructures';
 
 export function StatsDisplay() {
     const funds = useStore(state => state.funds);
-    const lifetimeEarnings = useStore(state => state.lifetimeEarnings);
     const volunteers = useStore(state => state.volunteers);
     const popularity = useStore(state => state.popularity);
     const momentum = useStore(state => state.momentum);
@@ -72,24 +71,18 @@ export function StatsDisplay() {
                 </div>
                 <motion.div
                     className="text-4xl font-bold text-white tabular-nums"
-                    key={Math.floor(funds)}
+                    key={`funds-${Math.floor(funds)}`} // Added prefix to key
                     initial={{ scale: 1.1 }}
                     animate={{ scale: 1 }}
                     transition={{ duration: 0.1 }}
                 >
-                    ${formatNumber(funds)}
+                    {formatMoney(funds)}
                 </motion.div>
                 <div className="flex items-center justify-center gap-3 mt-1">
-                    <span className="text-xs text-slate-500">
-                        Lifetime: ${formatNumber(lifetimeEarnings)}
-                    </span>
                     {earningsPerSecond > 0 && (
-                        <>
-                            <span className="text-xs text-slate-600">•</span>
-                            <span className="text-xs text-emerald-400 font-medium">
-                                {formatMoney(earningsPerSecond)}/sec
-                            </span>
-                        </>
+                        <span className="text-xs text-emerald-400 font-medium">
+                            {formatMoney(earningsPerSecond)}/sec
+                        </span>
                     )}
                 </div>
             </div>
@@ -100,7 +93,7 @@ export function StatsDisplay() {
                 <div className="text-center p-3 rounded-xl bg-slate-800/50">
                     <div className="text-2xl mb-1">✊</div>
                     <div className="text-lg font-bold text-emerald-400 tabular-nums">
-                        {volunteers}
+                        {formatNumber(volunteers)}
                     </div>
                     <div className="text-xs text-slate-500">Volunteers</div>
                     {volunteerBonus > 0 && (
@@ -115,7 +108,7 @@ export function StatsDisplay() {
                     <div className="text-2xl mb-1">
                         {popularity >= 1.5 ? '🔥' : popularity >= 1 ? '⭐' : '😰'}
                     </div>
-                    <div className={`text-lg font-bold tabular-nums ${popularity >= 1.2 ? 'text-amber-400' :
+                    <div className={`text-lg font-bold ${popularity >= 1.2 ? 'text-amber-400' :
                         popularity >= 0.8 ? 'text-slate-300' : 'text-red-400'
                         }`}>
                         {popularity.toFixed(2)}x

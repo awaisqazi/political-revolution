@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../store/useStore';
+import { useAudio } from '../hooks/useAudio';
 import { POLICIES } from '../config/policies';
 import { STAGES, type StageId } from '../config/stages';
 import { formatMoney } from '../utils/formatting';
@@ -10,6 +11,7 @@ export function PolicyList() {
     const unlockedPolicies = useStore(state => state.unlockedPolicies);
     const currentStageIndex = useStore(state => state.currentStageIndex);
     const buyPolicy = useStore(state => state.buyPolicy);
+    const { play } = useAudio();
 
     const stageOrder: StageId[] = ['activist', 'organizer', 'city-council', 'state-rep', 'congressman', 'senator', 'president'];
 
@@ -178,7 +180,7 @@ export function PolicyList() {
                                             {/* Buy Button */}
                                             {!isUnlocked && (
                                                 <motion.button
-                                                    onClick={() => buyPolicy(policy.id)}
+                                                    onClick={() => { buyPolicy(policy.id); play('policy'); }}
                                                     disabled={!canAfford}
                                                     className={`
                                                         w-full py-2 px-4 rounded-lg font-medium text-sm

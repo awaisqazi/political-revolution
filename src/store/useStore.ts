@@ -93,6 +93,12 @@ export interface GameState {
     miniGameScore: number;
     miniGameActivityId: string | null;
 
+    // Run tracking (for UI refreshes)
+    runId: number;
+
+    // Phase 8: Tutorial
+    tutorialStep: number; // 0 = not started, 1-4 = in tutorial, 5 = completed
+
     // Actions
     canvass: () => void;
     buyActivity: (id: string) => void;
@@ -117,6 +123,13 @@ export interface GameState {
     clearPolicyModal: () => void;
     promoteStage: () => void;
     getCurrentStage: () => typeof STAGES[0];
+
+    // Hard reset for new game
+    hardReset: () => void;
+
+    // Phase 8: Tutorial actions
+    advanceTutorial: () => void;
+    completeTutorial: () => void;
 }
 
 // Initialize activities state
@@ -169,41 +182,43 @@ const getPolicyMultiplier = (state: GameState, activityId: string): number => {
 // Zustand Store
 // ================================================
 
+const DEFAULT_STATE: Partial<GameState> = {
+    funds: STARTING_FUNDS,
+    lifetimeEarnings: 0,
+    volunteers: 0,
+    popularity: 1.0,
+    momentum: 0,
+    happiness: 50,
+    currentStageIndex: 0,
+    lastPurchasedPolicy: null,
+    utopiaAchieved: false,
+    unlockedPolicies: [],
+    unlockedMilestones: [],
+    pendingNotifications: [],
+    unlockedStructures: [],
+    totalClicks: 0,
+    highestLifetimeEarnings: 0,
+    currentRankId: 'neighbor',
+    activeEvent: null,
+    buyMode: 'x1',
+    activeMiniGame: 'none',
+    miniGameScore: 0,
+    miniGameActivityId: null,
+    runId: 0,
+    tutorialStep: 0,
+};
+
 export const useStore = create<GameState>()(
     persist(
         (set, get) => ({
             // Initial state
-            funds: STARTING_FUNDS,
-            lifetimeEarnings: 0,
-            volunteers: 0,
-            popularity: 1.0,
-            momentum: 0,
-
-            // Phase 7: Happiness & Stages
-            happiness: 50, // Status quo
-            currentStageIndex: 0, // City
-            lastPurchasedPolicy: null,
-            utopiaAchieved: false,
-
+            ...DEFAULT_STATE as GameState, // Cast because we know we're adding the missing parts below
             activities: initializeActivities(),
-            unlockedPolicies: [],
-            unlockedMilestones: [],
-            unlockedStructures: [],
-            pendingNotifications: [],
-            highestLifetimeEarnings: 0,
-            currentRankId: 'neighbor',
             lastSaveTime: Date.now(),
-            totalClicks: 0,
-            activeEvent: null,
-            buyMode: 'x1',
 
-            // Mini-game state
-            activeMiniGame: 'none',
-            miniGameScore: 0,
-            miniGameActivityId: null,
-
-            // Canvass action - fills momentum bar AND EARNS FUNDS
+            // Actions implementation start here...
             canvass: () => {
+
                 const state = get();
                 // Base click value (e.g., $1) scaled by current multipliers
                 const multipliers = calculateMultipliers(state);
@@ -364,6 +379,37 @@ export const useStore = create<GameState>()(
             getCurrentStage: () => {
                 const state = get();
                 return STAGES[state.currentStageIndex];
+            },
+
+            // Hard reset for new game
+            hardReset: () => {
+                set({
+                    funds: STARTING_FUNDS,
+                    lifetimeEarnings: 0,
+                    volunteers: 0,
+                    popularity: 1.0,
+                    momentum: 0,
+                    happiness: 50,
+                    currentStageIndex: 0,
+                    lastPurchasedPolicy: null,
+                    utopiaAchieved: false,
+                    unlockedPolicies: [],
+                    unlockedMilestones: [],
+                    pendingNotifications: [],
+                    unlockedStructures: [],
+                    totalClicks: 0,
+                    highestLifetimeEarnings: 0,
+                    currentRankId: 'neighbor',
+                    activeEvent: null,
+                    buyMode: 'x1',
+                    activeMiniGame: 'none',
+                    miniGameScore: 0,
+                    miniGameActivityId: null,
+                    activities: initializeActivities(),
+                    lastSaveTime: Date.now(),
+                    runId: Date.now(), // Force UI refresh
+                    tutorialStep: 0, // Reset tutorial for new game
+                });
             },
 
             // Game tick - called every frame
@@ -560,6 +606,7 @@ export const useStore = create<GameState>()(
                     volunteers: state.volunteers + bonusVolunteers, // ADD to existing volunteers
                     activeEvent: null,
                     lastSaveTime: Date.now(),
+                    runId: Date.now(), // Force UI refresh
                 });
             },
 
@@ -631,6 +678,17 @@ export const useStore = create<GameState>()(
                     volunteers: state.volunteers + volunteersEarned,
                 }));
             },
+
+            // Phase 8: Tutorial actions
+            advanceTutorial: () => {
+                set(state => ({
+                    tutorialStep: Math.min(7, state.tutorialStep + 1),
+                }));
+            },
+
+            completeTutorial: () => {
+                set({ tutorialStep: 99 }); // Set high to mark fully complete
+            },
         }),
         {
             name: 'political-revolution-save',
@@ -651,6 +709,8 @@ export const useStore = create<GameState>()(
                 currentRankId: state.currentRankId,
                 lastSaveTime: state.lastSaveTime,
                 totalClicks: state.totalClicks,
+                runId: state.runId,
+                tutorialStep: state.tutorialStep,
             }),
         }
     )

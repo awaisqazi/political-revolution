@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { useStore } from '../store/useStore';
+import { useAudio } from '../hooks/useAudio';
 import { STAGES, canPromoteStage } from '../config/stages';
 import { formatMoney } from '../utils/formatting';
 
@@ -12,6 +13,7 @@ export function StageIndicator() {
     const currentStage = STAGES[currentStageIndex];
     const nextStage = STAGES[currentStageIndex + 1];
     const canPromote = canPromoteStage(currentStageIndex, lifetimeEarnings, happiness);
+    const { play } = useAudio();
 
     const getStageColor = () => {
         switch (currentStage.colorTheme) {
@@ -129,7 +131,8 @@ export function StageIndicator() {
                     {/* Promote Button */}
                     {canPromote && (
                         <motion.button
-                            onClick={promoteStage}
+                            id="win-election-button"
+                            onClick={() => { promoteStage(); play('stageWin'); }}
                             className="w-full py-2 mt-2 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 text-white font-semibold text-sm hover:from-emerald-500 hover:to-green-500 transition-all shadow-lg shadow-emerald-900/30"
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../store/useStore';
+import { useAudio } from '../hooks/useAudio';
 import { ACTIVITIES } from '../config/activities';
 import { MINIGAME_DURATION, VOLUNTEER_BONUS_PER } from '../config/gameConfig';
 import { RANKS } from '../config/ranks';
@@ -18,6 +19,7 @@ export function RecruitmentModal() {
     const currentRankId = useStore(state => state.currentRankId);
     const clickMiniGame = useStore(state => state.clickMiniGame);
     const endMiniGame = useStore(state => state.endMiniGame);
+    const { play } = useAudio();
 
     const [timeLeft, setTimeLeft] = useState(MINIGAME_DURATION);
     const [gamePhase, setGamePhase] = useState<'playing' | 'results'>('playing');
@@ -72,6 +74,7 @@ export function RecruitmentModal() {
     // Handle click
     const handleClick = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
         clickMiniGame();
+        play('recruit');
 
         // Spawn floating text at random position near the click
         const rect = e.currentTarget.getBoundingClientRect();
