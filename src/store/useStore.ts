@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { ACTIVITIES, getActivityCost, getManagerCost } from '../config/activities';
-import { POLICIES, getPolicyById } from '../config/policies';
+import { POLICIES, getPolicyById, type Policy } from '../config/policies';
 import { RANKS, getRankForEarnings } from '../config/ranks';
 import {
     getMilestoneSpeedMultiplier,
@@ -11,6 +11,7 @@ import {
     type MilestoneNotification,
 } from '../config/unlocks';
 import { getPowerStructureMultiplier, getPowerStructureById } from '../config/powerStructures';
+import { STAGES, getMoraleMultiplier, canPromoteStage, type StageId } from '../config/stages';
 import {
     STARTING_FUNDS,
     MOMENTUM_CLICK_INCREMENT,
@@ -53,6 +54,12 @@ export interface GameState {
     volunteers: number;
     popularity: number; // 0.0 to 2.0
     momentum: number; // 0 to 100
+
+    // Phase 7: Happiness & Stages
+    happiness: number; // 0-100, starts at 50
+    currentStageIndex: number; // 0-2 (city/state/national)
+    lastPurchasedPolicy: Policy | null; // For triggering modal
+    utopiaAchieved: boolean; // Win condition reached
 
     // Activities
     activities: Record<string, ActivityState>;
@@ -105,6 +112,11 @@ export interface GameState {
     startMiniGame: (activityId: string) => void;
     clickMiniGame: () => void;
     endMiniGame: () => void;
+
+    // Phase 7: New Actions
+    clearPolicyModal: () => void;
+    promoteStage: () => void;
+    getCurrentStage: () => typeof STAGES[0];
 }
 
 // Initialize activities state
@@ -121,10 +133,11 @@ function initializeActivities(): Record<string, ActivityState> {
     return activities;
 }
 
-// Helper to calculate total global multiplier (including global policies)
+// Helper to calculate total global multiplier (including global policies + morale)
 const calculateMultipliers = (state: GameState) => {
     const momentumMultiplier = getMomentumMultiplier(state.momentum);
     const volunteerMultiplier = 1 + (state.volunteers * VOLUNTEER_BONUS_PER);
+    const moraleMultiplier = getMoraleMultiplier(state.happiness);
 
     // Calculate global policy multiplier
     const globalPolicyMultiplier = state.unlockedPolicies.reduce((mult, policyId) => {
@@ -138,7 +151,7 @@ const calculateMultipliers = (state: GameState) => {
     // Calculate power structure multiplier
     const structureMultiplier = getPowerStructureMultiplier(state.unlockedStructures || []);
 
-    return state.popularity * volunteerMultiplier * momentumMultiplier * globalPolicyMultiplier * structureMultiplier;
+    return state.popularity * volunteerMultiplier * momentumMultiplier * globalPolicyMultiplier * structureMultiplier * moraleMultiplier;
 };
 
 // Helper to get multiplier for a specific activity from unlocked policies
@@ -165,6 +178,13 @@ export const useStore = create<GameState>()(
             volunteers: 0,
             popularity: 1.0,
             momentum: 0,
+
+            // Phase 7: Happiness & Stages
+            happiness: 50, // Status quo
+            currentStageIndex: 0, // City
+            lastPurchasedPolicy: null,
+            utopiaAchieved: false,
+
             activities: initializeActivities(),
             unlockedPolicies: [],
             unlockedMilestones: [],
@@ -282,7 +302,7 @@ export const useStore = create<GameState>()(
                 }
             },
 
-            // Buy a policy upgrade
+            // Buy a policy upgrade - now affects happiness and triggers modal
             buyPolicy: (id: string) => {
                 const state = get();
                 const policy = POLICIES.find(p => p.id === id);
@@ -291,13 +311,59 @@ export const useStore = create<GameState>()(
                 // Check if already unlocked
                 if (state.unlockedPolicies.includes(id)) return;
 
+                // Check stage requirement
+                const stageOrder: StageId[] = ['activist', 'organizer', 'city-council', 'state-rep', 'congressman', 'senator', 'president'];
+                const policyStageIndex = stageOrder.indexOf(policy.stage);
+                if (policyStageIndex > state.currentStageIndex) return; // Can't buy policies from future stages
+
                 // Check if we have enough funds
                 if (state.funds >= policy.cost) {
+                    const newHappiness = Math.min(100, Math.max(0, state.happiness + policy.happinessChange));
+
+                    // Check for Utopia condition
+                    const isUtopia = state.currentStageIndex === 2 && newHappiness >= 100;
+
                     set(state => ({
                         funds: state.funds - policy.cost,
                         unlockedPolicies: [...state.unlockedPolicies, id],
+                        happiness: newHappiness,
+                        // Set policy for modal if it has impact content
+                        lastPurchasedPolicy: policy.impactDescription ? policy : null,
+                        utopiaAchieved: isUtopia,
                     }));
                 }
+            },
+
+            // Clear the policy modal after viewing
+            clearPolicyModal: () => {
+                set({ lastPurchasedPolicy: null });
+            },
+
+            // Promote to next stage (advance level)
+            promoteStage: () => {
+                const state = get();
+                const nextIndex = state.currentStageIndex + 1;
+
+                if (nextIndex >= STAGES.length) return; // Already at max
+
+                // Check if eligible to promote
+                // Note: STAGES[state.currentStageIndex] might be undefined if index is messed up, handled in canPromoteStage or just check existence
+                if (!canPromoteStage(state.currentStageIndex, state.lifetimeEarnings, state.happiness)) {
+                    return;
+                }
+
+                // Advance to next stage - KEEP current progress (funds, activities, etc.)
+                // "Winning" an election just moves you to the next level of influence.
+                set({
+                    currentStageIndex: nextIndex,
+                    lastSaveTime: Date.now(),
+                });
+            },
+
+            // Get current stage helper
+            getCurrentStage: () => {
+                const state = get();
+                return STAGES[state.currentStageIndex];
             },
 
             // Game tick - called every frame
@@ -316,7 +382,7 @@ export const useStore = create<GameState>()(
                     // Global milestone multiplier
                     const globalMilestoneMultiplier = getGlobalMilestoneMultiplier(totalLevels);
 
-                    // Multipliers (including global milestone boost)
+                    // Multipliers (including global milestone boost + morale)
                     const totalMultiplier = calculateMultipliers({ ...state, momentum: newMomentum }) * globalMilestoneMultiplier;
 
                     // Update activities
@@ -432,6 +498,7 @@ export const useStore = create<GameState>()(
                 const elapsedMs = Math.min(now - state.lastSaveTime, OFFLINE_MAX_SECONDS * 1000);
                 const elapsedSeconds = elapsedMs / 1000;
                 const volunteerMultiplier = 1 + (state.volunteers * VOLUNTEER_BONUS_PER);
+                const moraleMultiplier = getMoraleMultiplier(state.happiness);
 
                 // Calculate global policy multiplier for offline
                 const globalPolicyMultiplier = state.unlockedPolicies.reduce((mult, policyId) => {
@@ -445,7 +512,7 @@ export const useStore = create<GameState>()(
                 // Calculate power structure multiplier for offline
                 const structureMultiplier = getPowerStructureMultiplier(state.unlockedStructures || []);
 
-                const totalMultiplier = state.popularity * volunteerMultiplier * globalPolicyMultiplier * structureMultiplier; // No momentum offline
+                const totalMultiplier = state.popularity * volunteerMultiplier * globalPolicyMultiplier * structureMultiplier * moraleMultiplier; // No momentum offline
 
                 let totalEarnings = 0;
 
@@ -474,7 +541,7 @@ export const useStore = create<GameState>()(
                 // Calculate bonus volunteers from prestige formula
                 const bonusVolunteers = Math.floor(Math.sqrt(state.lifetimeEarnings / VOLUNTEER_DIVISOR));
 
-                // Always allow prestige - ADD bonus to existing volunteers
+                // Full reset - start a new campaign from City Council
                 set({
                     funds: STARTING_FUNDS,
                     lifetimeEarnings: 0,
@@ -482,6 +549,9 @@ export const useStore = create<GameState>()(
                     totalClicks: 0, // Reset doors knocked
                     highestLifetimeEarnings: 0, // Reset total raised
                     currentRankId: 'neighbor', // Reset rank
+                    currentStageIndex: 0, // Reset to City Council - start fresh!
+                    utopiaAchieved: false, // Reset win condition
+                    happiness: 50, // Reset happiness to status quo
                     activities: initializeActivities(),
                     unlockedPolicies: [], // Reset policies on prestige
                     unlockedMilestones: [], // Reset milestones on prestige
@@ -570,6 +640,9 @@ export const useStore = create<GameState>()(
                 volunteers: state.volunteers,
                 popularity: state.popularity,
                 momentum: state.momentum,
+                happiness: state.happiness,
+                currentStageIndex: state.currentStageIndex,
+                utopiaAchieved: state.utopiaAchieved,
                 activities: state.activities,
                 unlockedPolicies: state.unlockedPolicies,
                 unlockedMilestones: state.unlockedMilestones,

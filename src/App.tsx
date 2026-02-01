@@ -4,6 +4,7 @@ import { useGameLoop } from './hooks/useGameLoop';
 import { useNewsEvents } from './hooks/useNewsEvents';
 import { useStore } from './store/useStore';
 import { ACTIVITIES } from './config/activities';
+import { STAGES } from './config/stages';
 import { getRankById, getNextRank } from './config/ranks';
 import { formatMoney } from './utils/formatting';
 import { VOLUNTEER_BONUS_PER } from './config/gameConfig';
@@ -19,6 +20,10 @@ import { UnlockNotification } from './components/UnlockNotification';
 import { BuyModeToggle } from './components/BuyModeToggle';
 import { PowerStructureList } from './components/PowerStructureList';
 import { RecruitmentModal } from './components/RecruitmentModal';
+import { HappinessBar } from './components/HappinessBar';
+import { StageIndicator } from './components/StageIndicator';
+import { PolicyImpactModal } from './components/PolicyImpactModal';
+import { UtopiaModal } from './components/UtopiaModal';
 
 type TabType = 'activities' | 'policies' | 'capital' | 'log';
 
@@ -33,9 +38,11 @@ function App() {
   const volunteers = useStore(state => state.volunteers);
   const unlockedPolicies = useStore(state => state.unlockedPolicies);
   const activities = useStore(state => state.activities);
+  const currentStageIndex = useStore(state => state.currentStageIndex);
 
   const currentRank = getRankById(currentRankId);
   const nextRank = getNextRank(currentRankId);
+  const currentStage = STAGES[currentStageIndex];
 
   // Start game loops
   useGameLoop();
@@ -68,21 +75,40 @@ function App() {
     { id: 'log', label: 'Log', icon: '📋' },
   ];
 
+  // Get stage-based color theme
+  const getStageGradient = () => {
+    switch (currentStage?.colorTheme) {
+      case 'slate': return 'from-slate-600 to-slate-500';
+      case 'blue': return 'from-blue-600 to-blue-500';
+      case 'cyan': return 'from-cyan-600 to-cyan-500';
+      case 'indigo': return 'from-indigo-600 to-indigo-500';
+      case 'violet': return 'from-violet-600 to-violet-500';
+      case 'purple': return 'from-purple-600 to-purple-500';
+      case 'rose': return 'from-rose-600 to-rose-500';
+      default: return 'from-blue-600 to-blue-500';
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* News Ticker - Top */}
       <NewsTicker />
 
-      {/* Header with Rank */}
+      {/* Header with Rank & Stage */}
       <header className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-lg border-b border-slate-800">
         <div className="max-w-7xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="text-3xl">{currentRank?.emoji || '✊'}</span>
+              <span className="text-3xl">{currentStage?.emoji || currentRank?.emoji || '✊'}</span>
               <div>
-                <h1 className="text-lg font-bold text-white leading-tight">
-                  Political Revolution
-                </h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-lg font-bold text-white leading-tight">
+                    Political Revolution
+                  </h1>
+                  <span className={`text-xs px-2 py-0.5 rounded-full bg-gradient-to-r ${getStageGradient()} text-white`}>
+                    {currentStage?.name}
+                  </span>
+                </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-blue-400">
                     {currentRank?.title || 'Concerned Neighbor'}
@@ -115,6 +141,7 @@ function App() {
           {/* LEFT COLUMN - The Candidate */}
           <div className="lg:col-span-3 space-y-4">
             <StatsDisplay />
+            <HappinessBar />
             <CanvassButton />
 
             {/* Volunteers Card */}
@@ -130,6 +157,9 @@ function App() {
                 }
               </p>
             </div>
+
+            {/* Stage Indicator */}
+            <StageIndicator />
 
             {/* Prestige Button - Desktop */}
             <div className="hidden lg:block">
@@ -357,6 +387,12 @@ function App() {
 
       {/* Recruitment Drive Mini-Game */}
       <RecruitmentModal />
+
+      {/* Policy Impact Modal */}
+      <PolicyImpactModal />
+
+      {/* Utopia Victory Modal */}
+      <UtopiaModal />
     </div>
   );
 }
