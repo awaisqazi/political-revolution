@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { ACTIVITIES, getActivityCost, getManagerCost } from '../config/activities';
+import { POLICIES, getPolicyById } from '../config/policies';
 import {
     STARTING_FUNDS,
     MOMENTUM_CLICK_INCREMENT,
@@ -42,6 +43,9 @@ export interface GameState {
     // Activities
     activities: Record<string, ActivityState>;
 
+    // Policies (upgrades)
+    unlockedPolicies: string[];
+
     // Meta
     lastSaveTime: number;
     totalClicks: number;
@@ -53,6 +57,8 @@ export interface GameState {
     canvass: () => void;
     buyActivity: (id: string) => void;
     hireManager: (id: string) => void;
+    runActivity: (id: string) => void;
+    buyPolicy: (id: string) => void; // NEW ACTION
     tick: (deltaMs: number) => void;
     prestige: () => void;
     dismissEvent: () => void;
@@ -74,6 +80,34 @@ function initializeActivities(): Record<string, ActivityState> {
     return activities;
 }
 
+// Helper to calculate total global multiplier (including global policies)
+const calculateMultipliers = (state: GameState) => {
+    const momentumMultiplier = getMomentumMultiplier(state.momentum);
+    const volunteerMultiplier = 1 + (state.volunteers * VOLUNTEER_BONUS_PER);
+
+    // Calculate global policy multiplier
+    const globalPolicyMultiplier = state.unlockedPolicies.reduce((mult, policyId) => {
+        const policy = getPolicyById(policyId);
+        if (policy && policy.type === 'global') {
+            return mult * policy.multiplier;
+        }
+        return mult;
+    }, 1);
+
+    return state.popularity * volunteerMultiplier * momentumMultiplier * globalPolicyMultiplier;
+};
+
+// Helper to get multiplier for a specific activity from unlocked policies
+const getPolicyMultiplier = (state: GameState, activityId: string): number => {
+    return state.unlockedPolicies.reduce((mult, policyId) => {
+        const policy = getPolicyById(policyId);
+        if (policy && policy.type === 'activity' && policy.triggerId === activityId) {
+            return mult * policy.multiplier;
+        }
+        return mult;
+    }, 1);
+};
+
 // ================================================
 // Zustand Store
 // ================================================
@@ -88,16 +122,43 @@ export const useStore = create<GameState>()(
             popularity: 1.0,
             momentum: 0,
             activities: initializeActivities(),
+            unlockedPolicies: [],
             lastSaveTime: Date.now(),
             totalClicks: 0,
             activeEvent: null,
 
-            // Canvass action - fills momentum bar
+            // Canvass action - fills momentum bar AND EARNS FUNDS
             canvass: () => {
+                const state = get();
+                // Base click value (e.g., $1) scaled by current multipliers
+                const multipliers = calculateMultipliers(state);
+                const clickValue = 1 * multipliers;
+
                 set(state => ({
                     momentum: Math.min(100, state.momentum + MOMENTUM_CLICK_INCREMENT),
                     totalClicks: state.totalClicks + 1,
+                    funds: state.funds + clickValue,
+                    lifetimeEarnings: state.lifetimeEarnings + clickValue,
                 }));
+            },
+
+            // Manually run an activity (Clicking the card)
+            runActivity: (id: string) => {
+                const state = get();
+                const activity = state.activities[id];
+
+                // Can only run if owned, NOT already running, and NOT managed (managers handle it automatically)
+                if (activity.owned > 0 && activity.progress === 0 && !activity.managerHired) {
+                    set(state => ({
+                        activities: {
+                            ...state.activities,
+                            [id]: {
+                                ...activity,
+                                progress: 0.1, // Start progress slightly above 0 to catch it in the tick
+                            },
+                        },
+                    }));
+                }
             },
 
             // Buy an activity
@@ -142,8 +203,27 @@ export const useStore = create<GameState>()(
                             [id]: {
                                 ...state.activities[id],
                                 managerHired: true,
+                                progress: 0.1, // Kickstart it immediately
                             },
                         },
+                    }));
+                }
+            },
+
+            // Buy a policy upgrade
+            buyPolicy: (id: string) => {
+                const state = get();
+                const policy = POLICIES.find(p => p.id === id);
+                if (!policy) return;
+
+                // Check if already unlocked
+                if (state.unlockedPolicies.includes(id)) return;
+
+                // Check if we have enough funds
+                if (state.funds >= policy.cost) {
+                    set(state => ({
+                        funds: state.funds - policy.cost,
+                        unlockedPolicies: [...state.unlockedPolicies, id],
                     }));
                 }
             },
@@ -151,42 +231,53 @@ export const useStore = create<GameState>()(
             // Game tick - called every frame
             tick: (deltaMs: number) => {
                 set(state => {
-                    // Calculate decay rate with volunteer reduction
+                    // Decay logic
                     const decayReduction = state.volunteers * VOLUNTEER_MOMENTUM_DECAY_REDUCTION;
                     const effectiveDecayRate = Math.max(0.5, MOMENTUM_DECAY_RATE - decayReduction);
-
-                    // Decay momentum
                     const newMomentum = Math.max(0, state.momentum - (effectiveDecayRate * deltaMs / 1000));
 
-                    // Calculate multipliers
-                    const momentumMultiplier = getMomentumMultiplier(newMomentum);
-                    const volunteerMultiplier = 1 + (state.volunteers * VOLUNTEER_BONUS_PER);
-                    const totalMultiplier = state.popularity * volunteerMultiplier * momentumMultiplier;
+                    // Multipliers
+                    const totalMultiplier = calculateMultipliers({ ...state, momentum: newMomentum });
 
-                    // Update activities and calculate earnings
+                    // Update activities
                     let earnings = 0;
                     const newActivities = { ...state.activities };
 
                     ACTIVITIES.forEach(activity => {
                         const activityState = newActivities[activity.id];
                         if (activityState.owned === 0) return;
-                        if (!activityState.managerHired) return; // Only automated activities run
 
-                        // Progress the activity
+                        // Check if activity should run (Manager OR Manually started)
+                        const isRunning = activityState.managerHired || activityState.progress > 0;
+                        if (!isRunning) return;
+
                         const newProgress = activityState.progress + deltaMs;
 
                         if (newProgress >= activity.baseTime) {
-                            // Activity completed - calculate how many times
-                            const completions = Math.floor(newProgress / activity.baseTime);
-                            const revenue = activity.baseRevenue * activityState.owned * totalMultiplier * completions;
-                            earnings += revenue;
+                            // Activity Completed!
+                            const policyMultiplier = getPolicyMultiplier(state, activity.id);
+                            const revenue = activity.baseRevenue * activityState.owned * totalMultiplier * policyMultiplier;
 
-                            newActivities[activity.id] = {
-                                ...activityState,
-                                progress: newProgress % activity.baseTime,
-                                lastCompletionTime: Date.now(),
-                            };
+                            // If it overshot significantly (e.g. lag), calculate multiple completions for Managers only
+                            if (activityState.managerHired) {
+                                const completions = Math.floor(newProgress / activity.baseTime);
+                                earnings += revenue * completions;
+                                newActivities[activity.id] = {
+                                    ...activityState,
+                                    progress: newProgress % activity.baseTime, // Loop it
+                                    lastCompletionTime: Date.now(),
+                                };
+                            } else {
+                                // Manual run: Grant 1x revenue and stop
+                                earnings += revenue;
+                                newActivities[activity.id] = {
+                                    ...activityState,
+                                    progress: 0, // Reset to 0 (stop)
+                                    lastCompletionTime: Date.now(),
+                                };
+                            }
                         } else {
+                            // Still in progress
                             newActivities[activity.id] = {
                                 ...activityState,
                                 progress: newProgress,
@@ -204,34 +295,36 @@ export const useStore = create<GameState>()(
                 });
             },
 
-            // Calculate offline progress
+            // Calculate offline progress (unchanged logic, just ensuring it matches types)
             calculateOfflineProgress: () => {
                 const state = get();
                 const now = Date.now();
-                const elapsedMs = Math.min(
-                    now - state.lastSaveTime,
-                    OFFLINE_MAX_SECONDS * 1000
-                );
+                const elapsedMs = Math.min(now - state.lastSaveTime, OFFLINE_MAX_SECONDS * 1000);
                 const elapsedSeconds = elapsedMs / 1000;
-
-                // Calculate earnings from automated activities
-                // Use base multipliers (no momentum when offline)
                 const volunteerMultiplier = 1 + (state.volunteers * VOLUNTEER_BONUS_PER);
-                const totalMultiplier = state.popularity * volunteerMultiplier;
+
+                // Calculate global policy multiplier for offline
+                const globalPolicyMultiplier = state.unlockedPolicies.reduce((mult, policyId) => {
+                    const policy = getPolicyById(policyId);
+                    if (policy && policy.type === 'global') {
+                        return mult * policy.multiplier;
+                    }
+                    return mult;
+                }, 1);
+
+                const totalMultiplier = state.popularity * volunteerMultiplier * globalPolicyMultiplier; // No momentum offline
 
                 let totalEarnings = 0;
 
                 ACTIVITIES.forEach(activity => {
                     const activityState = state.activities[activity.id];
                     if (activityState.owned === 0 || !activityState.managerHired) return;
-
+                    const policyMultiplier = getPolicyMultiplier(state, activity.id);
                     const completionsPerSecond = 1000 / activity.baseTime;
-                    const totalCompletions = completionsPerSecond * elapsedSeconds;
-                    const revenue = activity.baseRevenue * activityState.owned * totalMultiplier * totalCompletions;
+                    const revenue = activity.baseRevenue * activityState.owned * totalMultiplier * policyMultiplier * completionsPerSecond * elapsedSeconds;
                     totalEarnings += revenue;
                 });
 
-                // Apply offline earnings
                 if (totalEarnings > 0) {
                     set(state => ({
                         funds: state.funds + totalEarnings,
@@ -243,38 +336,27 @@ export const useStore = create<GameState>()(
                 return { earnings: totalEarnings, seconds: elapsedSeconds };
             },
 
-            // Prestige - reset and gain volunteers
             prestige: () => {
                 const state = get();
                 const newVolunteers = Math.floor(Math.sqrt(state.lifetimeEarnings / VOLUNTEER_DIVISOR));
-
-                if (newVolunteers <= state.volunteers) return; // No point in prestiging
-
+                if (newVolunteers <= state.volunteers) return;
                 set({
                     funds: STARTING_FUNDS,
                     lifetimeEarnings: 0,
                     momentum: 0,
                     activities: initializeActivities(),
+                    unlockedPolicies: [], // Reset policies on prestige
                     volunteers: newVolunteers,
-                    // Keep popularity and reset event
                     activeEvent: null,
                     lastSaveTime: Date.now(),
                 });
             },
 
-            // Dismiss active event
-            dismissEvent: () => {
-                set({ activeEvent: null });
-            },
+            dismissEvent: () => { set({ activeEvent: null }); },
 
-            // Trigger a news event
             triggerEvent: (event) => {
                 set(state => ({
-                    activeEvent: {
-                        ...event,
-                        id: `event-${Date.now()}`,
-                        timestamp: Date.now(),
-                    },
+                    activeEvent: { ...event, id: `event-${Date.now()}`, timestamp: Date.now() },
                     popularity: Math.max(0, Math.min(2.0, state.popularity + event.popularityChange)),
                 }));
             },
@@ -288,6 +370,7 @@ export const useStore = create<GameState>()(
                 popularity: state.popularity,
                 momentum: state.momentum,
                 activities: state.activities,
+                unlockedPolicies: state.unlockedPolicies,
                 lastSaveTime: state.lastSaveTime,
                 totalClicks: state.totalClicks,
             }),

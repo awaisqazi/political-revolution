@@ -3,6 +3,8 @@ import { useStore } from '../store/useStore';
 import type { ActivityConfig } from '../config/activities';
 import { getActivityCost, getManagerCost } from '../config/activities';
 import { formatNumber } from '../config/gameConfig';
+import { getPolicyById } from '../config/policies';
+import { formatMoney } from '../utils/formatting';
 
 interface ActivityCardProps {
     activity: ActivityConfig;
@@ -11,8 +13,10 @@ interface ActivityCardProps {
 export function ActivityCard({ activity }: ActivityCardProps) {
     const funds = useStore(state => state.funds);
     const activityState = useStore(state => state.activities[activity.id]);
+    const unlockedPolicies = useStore(state => state.unlockedPolicies);
     const buyActivity = useStore(state => state.buyActivity);
     const hireManager = useStore(state => state.hireManager);
+    const runActivity = useStore(state => state.runActivity);
 
     const cost = getActivityCost(activity.baseCost, activityState.owned);
     const managerCost = getManagerCost(activity.baseCost);
@@ -21,12 +25,28 @@ export function ActivityCard({ activity }: ActivityCardProps) {
 
     const progressPercent = (activityState.progress / activity.baseTime) * 100;
 
+    // Can manually run if: owned, not managed, and not currently running
+    const canManuallyRun = activityState.owned > 0 && !activityState.managerHired && activityState.progress === 0;
+
+    // Calculate policy multiplier for this activity
+    const policyMultiplier = unlockedPolicies.reduce((mult, policyId) => {
+        const policy = getPolicyById(policyId);
+        if (policy && policy.type === 'activity' && policy.triggerId === activity.id) {
+            return mult * policy.multiplier;
+        }
+        return mult;
+    }, 1);
+
+    // Revenue per cycle with policy multipliers
+    const revenuePerCycle = activity.baseRevenue * activityState.owned * policyMultiplier;
+
     return (
         <motion.div
-            className="glass-card p-4 relative overflow-hidden"
+            className={`glass-card p-4 relative overflow-hidden ${canManuallyRun ? 'cursor-pointer hover:ring-2 hover:ring-blue-400/50' : ''}`}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
+            onClick={() => canManuallyRun && runActivity(activity.id)}
         >
             {/* Manager Badge */}
             {activityState.managerHired && (
@@ -69,8 +89,13 @@ export function ActivityCard({ activity }: ActivityCardProps) {
 
             {/* Info Row */}
             <div className="flex justify-between text-xs text-slate-400 mb-3">
-                <span>
-                    Rev: ${formatNumber(activity.baseRevenue * activityState.owned)}/cycle
+                <span className="flex items-center gap-1">
+                    Rev: {formatMoney(revenuePerCycle)}/cycle
+                    {policyMultiplier > 1 && (
+                        <span className="text-emerald-400 font-medium">
+                            ({policyMultiplier}x)
+                        </span>
+                    )}
                 </span>
                 <span>
                     Time: {(activity.baseTime / 1000).toFixed(1)}s
@@ -81,11 +106,11 @@ export function ActivityCard({ activity }: ActivityCardProps) {
             <div className="flex gap-2">
                 {/* Buy Button */}
                 <motion.button
-                    onClick={() => buyActivity(activity.id)}
+                    onClick={(e) => { e.stopPropagation(); buyActivity(activity.id); }}
                     disabled={!canAfford}
                     className={`flex-1 py-2 px-3 rounded-lg font-medium text-sm transition-all ${canAfford
-                            ? 'bg-blue-600 hover:bg-blue-500 text-white'
-                            : 'bg-slate-700/50 text-slate-500 cursor-not-allowed'
+                        ? 'bg-blue-600 hover:bg-blue-500 text-white'
+                        : 'bg-slate-700/50 text-slate-500 cursor-not-allowed'
                         }`}
                     whileHover={canAfford ? { scale: 1.02 } : {}}
                     whileTap={canAfford ? { scale: 0.98 } : {}}
@@ -96,11 +121,11 @@ export function ActivityCard({ activity }: ActivityCardProps) {
                 {/* Manager Button */}
                 {!activityState.managerHired && activityState.owned > 0 && (
                     <motion.button
-                        onClick={() => hireManager(activity.id)}
+                        onClick={(e) => { e.stopPropagation(); hireManager(activity.id); }}
                         disabled={!canAffordManager}
                         className={`py-2 px-3 rounded-lg font-medium text-sm transition-all ${canAffordManager
-                                ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                                : 'bg-slate-700/50 text-slate-500 cursor-not-allowed'
+                            ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                            : 'bg-slate-700/50 text-slate-500 cursor-not-allowed'
                             }`}
                         whileHover={canAffordManager ? { scale: 1.02 } : {}}
                         whileTap={canAffordManager ? { scale: 0.98 } : {}}
@@ -122,3 +147,4 @@ export function ActivityCard({ activity }: ActivityCardProps) {
         </motion.div>
     );
 }
+

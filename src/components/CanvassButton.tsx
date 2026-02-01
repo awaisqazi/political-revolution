@@ -1,10 +1,42 @@
-import { motion } from 'framer-motion';
+import { useState, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../store/useStore';
 import { MomentumBar } from './MomentumBar';
+import { formatMoney } from '../utils/formatting';
+
+interface FloatingNumber {
+    id: number;
+    value: number;
+    x: number;
+    y: number;
+}
 
 export function CanvassButton() {
     const canvass = useStore(state => state.canvass);
     const totalClicks = useStore(state => state.totalClicks);
+    const [floatingNumbers, setFloatingNumbers] = useState<FloatingNumber[]>([]);
+
+    const handleCanvass = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+        // Get current click value (approximate - 1 * multipliers)
+        // For simplicity, we'll show +$1 base value
+        const clickValue = 1;
+
+        // Spawn floating number at click position
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        const id = Date.now() + Math.random();
+        setFloatingNumbers(prev => [...prev, { id, value: clickValue, x, y }]);
+
+        // Remove after animation
+        setTimeout(() => {
+            setFloatingNumbers(prev => prev.filter(n => n.id !== id));
+        }, 800);
+
+        // Trigger the actual canvass action
+        canvass();
+    }, [canvass]);
 
     return (
         <div className="glass-card p-6">
@@ -20,7 +52,7 @@ export function CanvassButton() {
 
             {/* Canvass Button */}
             <motion.button
-                onClick={canvass}
+                onClick={handleCanvass}
                 className="w-full py-6 px-8 rounded-2xl font-bold text-xl text-white btn-press relative overflow-hidden"
                 style={{
                     background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%)',
@@ -46,6 +78,28 @@ export function CanvassButton() {
                     whileTap={{ scale: 2, opacity: 0 }}
                     transition={{ duration: 0.5 }}
                 />
+
+                {/* Floating Numbers */}
+                <AnimatePresence>
+                    {floatingNumbers.map(num => (
+                        <motion.div
+                            key={num.id}
+                            className="absolute pointer-events-none font-bold text-lg"
+                            style={{
+                                left: num.x,
+                                top: num.y,
+                                color: '#22c55e',
+                                textShadow: '0 0 10px rgba(34, 197, 94, 0.6), 0 2px 4px rgba(0,0,0,0.5)',
+                            }}
+                            initial={{ opacity: 1, y: 0, scale: 1 }}
+                            animate={{ opacity: 0, y: -40, scale: 1.3 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.7, ease: 'easeOut' }}
+                        >
+                            +{formatMoney(num.value)}
+                        </motion.div>
+                    ))}
+                </AnimatePresence>
             </motion.button>
 
             {/* Click counter */}
@@ -60,3 +114,4 @@ export function CanvassButton() {
         </div>
     );
 }
+

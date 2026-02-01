@@ -1,20 +1,33 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useGameLoop } from './hooks/useGameLoop';
 import { useNewsEvents } from './hooks/useNewsEvents';
+import { useStore } from './store/useStore';
 import { ACTIVITIES } from './config/activities';
 import { CanvassButton } from './components/CanvassButton';
 import { StatsDisplay } from './components/StatsDisplay';
 import { ActivityCard } from './components/ActivityCard';
 import { PrestigeModal } from './components/PrestigeModal';
 import { NewsEvent } from './components/NewsEvent';
+import { PolicyList } from './components/PolicyList';
+import { WelcomeModal } from './components/WelcomeModal';
 
 function App() {
   const [isPrestigeOpen, setIsPrestigeOpen] = useState(false);
+  const [welcomeData, setWelcomeData] = useState<{ earnings: number; seconds: number } | null>(null);
+  const calculateOfflineProgress = useStore(state => state.calculateOfflineProgress);
 
   // Start game loops
   useGameLoop();
   useNewsEvents();
+
+  // Check for offline progress on mount
+  useEffect(() => {
+    const progress = calculateOfflineProgress();
+    if (progress.earnings > 0 && progress.seconds > 10) {
+      setWelcomeData(progress);
+    }
+  }, [calculateOfflineProgress]);
 
   return (
     <div className="min-h-screen pb-20">
@@ -76,12 +89,23 @@ function App() {
             </motion.div>
           ))}
         </div>
+
+        {/* Policies Section */}
+        <PolicyList />
       </main>
 
       {/* Modals */}
       <PrestigeModal
         isOpen={isPrestigeOpen}
         onClose={() => setIsPrestigeOpen(false)}
+      />
+
+      {/* Welcome Back Modal */}
+      <WelcomeModal
+        isOpen={welcomeData !== null}
+        earnings={welcomeData?.earnings ?? 0}
+        seconds={welcomeData?.seconds ?? 0}
+        onClose={() => setWelcomeData(null)}
       />
 
       {/* News Events */}
@@ -91,3 +115,4 @@ function App() {
 }
 
 export default App;
+
