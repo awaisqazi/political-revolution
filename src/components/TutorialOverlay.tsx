@@ -69,62 +69,55 @@ function CampaignManager({ message, onContinue, onSkip, showContinue }: {
 }) {
     return (
         <motion.div
-            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[60] max-w-md w-full mx-4"
+            className="fixed bottom-20 lg:bottom-8 left-1/2 -translate-x-1/2 z-[60] max-w-md w-full px-4"
             initial={{ y: 100, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 100, opacity: 0 }}
             transition={{ type: 'spring', damping: 20 }}
         >
-            <div className="bg-slate-800/95 backdrop-blur-lg border border-slate-700 rounded-2xl p-4 shadow-2xl">
-                <div className="flex items-start gap-4">
+            <div className="bg-slate-800/95 backdrop-blur-lg border border-slate-700 rounded-2xl p-3 lg:p-4 shadow-2xl">
+                <div className="flex items-start gap-3">
+                    {/* Avatar - smaller on mobile */}
                     <div className="flex-shrink-0">
-                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-2xl shadow-lg">
+                        <div className="w-10 h-10 lg:w-14 lg:h-14 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-lg lg:text-2xl shadow-lg">
                             📋
                         </div>
-                        <div className="text-center mt-1">
+                        <div className="text-center mt-1 hidden lg:block">
                             <span className="text-xs text-blue-400 font-medium">Campaign</span>
                             <br />
                             <span className="text-xs text-blue-400 font-medium">Manager</span>
                         </div>
                     </div>
 
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                         <motion.div
-                            className="bg-slate-700/50 rounded-xl p-3 relative"
+                            className="bg-slate-700/50 rounded-xl p-2.5 lg:p-3 relative"
                             initial={{ scale: 0.9 }}
                             animate={{ scale: 1 }}
                         >
-                            <div className="absolute left-0 top-4 -translate-x-full">
+                            <div className="absolute left-0 top-3 lg:top-4 -translate-x-full">
                                 <div className="border-8 border-transparent border-r-slate-700/50" />
                             </div>
-                            <p className="text-white text-sm leading-relaxed">
+                            <p className="text-white text-xs lg:text-sm leading-relaxed">
                                 {message}
                             </p>
                         </motion.div>
 
-                        <div className="mt-3 flex gap-2">
+                        <div className="mt-2 lg:mt-3 flex gap-2">
                             {showContinue && (
-                                <motion.button
+                                <button
                                     onClick={onContinue}
-                                    className="flex-1 py-2 px-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium text-sm hover:from-blue-500 hover:to-purple-500 transition-all"
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
+                                    className="flex-1 py-2 px-3 lg:px-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium text-xs lg:text-sm hover:from-blue-500 hover:to-purple-500 transition-all active:scale-[0.98]"
                                 >
                                     Got it! →
-                                </motion.button>
+                                </button>
                             )}
-                            <motion.button
+                            <button
                                 onClick={onSkip}
-                                className="py-2 px-4 bg-slate-700/80 text-slate-400 rounded-lg font-medium text-sm hover:bg-slate-600 hover:text-white transition-all"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
+                                className="py-2 px-3 lg:px-4 bg-slate-700/80 text-slate-400 rounded-lg font-medium text-xs lg:text-sm hover:bg-slate-600 hover:text-white transition-all active:scale-[0.98]"
                             >
                                 Skip
-                            </motion.button>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -132,6 +125,7 @@ function CampaignManager({ message, onContinue, onSkip, showContinue }: {
         </motion.div>
     );
 }
+
 
 // ================================================
 // Spotlight Overlay
