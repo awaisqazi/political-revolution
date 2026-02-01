@@ -29,6 +29,9 @@ import { ResetGameModal } from './components/ResetGameModal';
 import { SettingsModal } from './components/SettingsModal';
 import { TutorialOverlay } from './components/TutorialOverlay';
 import { DilemmaModal } from './components/DilemmaModal';
+import { BackgroundLayer } from './components/BackgroundLayer';
+import { ScrapbookModal } from './components/ScrapbookModal';
+import { MemoryNotification } from './components/MemoryNotification';
 
 type TabType = 'activities' | 'policies' | 'capital' | 'log';
 
@@ -36,6 +39,7 @@ function App() {
   const [isPrestigeOpen, setIsPrestigeOpen] = useState(false);
   const [isResetOpen, setIsResetOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isScrapbookOpen, setIsScrapbookOpen] = useState(false);
   const [welcomeData, setWelcomeData] = useState<{ earnings: number; seconds: number } | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('activities');
 
@@ -117,6 +121,7 @@ function App() {
   return (
     <AudioProvider>
       <div className={`min-h-screen flex flex-col transition-colors duration-1000 ${currentStage?.backgroundStyle || 'bg-slate-900'}`}>
+        <BackgroundLayer />
         {/* Stage Promotion Celebration Overlay */}
         <AnimatePresence>
           {showCelebration && (
@@ -201,6 +206,17 @@ function App() {
                   title="Settings"
                 >
                   ⚙️
+                </motion.button>
+
+                {/* Scrapbook Button */}
+                <motion.button
+                  onClick={() => setIsScrapbookOpen(true)}
+                  className="px-3 py-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  title="Memories"
+                >
+                  📷
                 </motion.button>
 
                 <motion.button
@@ -490,6 +506,14 @@ function App() {
 
         {/* Tutorial Overlay */}
         <TutorialOverlay />
+
+        <ScrapbookModal
+          isOpen={isScrapbookOpen}
+          onClose={() => setIsScrapbookOpen(false)}
+        />
+
+        {/* Memory Notification */}
+        <MemoryNotification />
       </div>
     </AudioProvider>
   );

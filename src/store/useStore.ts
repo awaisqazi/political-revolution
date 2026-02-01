@@ -75,6 +75,10 @@ export interface GameState {
     // Power Structures (Deep Organizing)
     unlockedStructures: string[];
 
+    // Phase 10: Scrapbook Memories
+    unlockedMemories: string[];
+    pendingMemoryUnlocks: string[]; // IDs of memories just unlocked
+
     // Meta
     lastSaveTime: number;
     totalClicks: number;
@@ -140,6 +144,10 @@ export interface GameState {
     triggerDilemma: (dilemma: Dilemma) => void;
     resolveDilemma: (choiceKey: 'choiceA' | 'choiceB') => void;
     dismissDilemma: () => void;
+
+    // Phase 10: Memory actions
+    unlockMemory: (id: string) => void;
+    dismissMemoryNotification: () => void;
 }
 
 // Initialize activities state
@@ -206,6 +214,8 @@ const DEFAULT_STATE: Partial<GameState> = {
     unlockedMilestones: [],
     pendingNotifications: [],
     unlockedStructures: [],
+    unlockedMemories: [],
+    pendingMemoryUnlocks: [],
     totalClicks: 0,
     highestLifetimeEarnings: 0,
     currentRankId: 'neighbor',
@@ -410,6 +420,13 @@ export const useStore = create<GameState>()(
                     unlockedMilestones: [],
                     pendingNotifications: [],
                     unlockedStructures: [],
+                    // Do NOT reset unlockedMemories on hard reset? Maybe?
+                    // User requested "Start the game and see... When I win...".
+                    // Usually scrapbooks are meta-progression. Let's keep them if it feels right, 
+                    // BUT hardReset implies "Total Wipe". 
+                    // Let's wipe them on HARD reset, but keep on PRESTIGE.
+                    // Let's wipe them on HARD reset, but keep on PRESTIGE.
+                    unlockedMemories: [],
                     totalClicks: 0,
                     highestLifetimeEarnings: 0,
                     currentRankId: 'neighbor',
@@ -618,6 +635,8 @@ export const useStore = create<GameState>()(
                     unlockedPolicies: [], // Reset policies on prestige
                     unlockedMilestones: [], // Reset milestones on prestige
                     unlockedStructures: [], // Reset power structures on prestige
+                    unlockedMemories: state.unlockedMemories, // KEEP memories through prestige (they are permanent achievements)
+                    pendingMemoryUnlocks: [], // Clear pending on prestige just in case
                     pendingNotifications: [],
                     volunteers: state.volunteers + bonusVolunteers, // ADD to existing volunteers
                     activeEvent: null,
@@ -738,6 +757,22 @@ export const useStore = create<GameState>()(
             dismissDilemma: () => {
                 set({ activeDilemma: null });
             },
+
+            unlockMemory: (id: string) => {
+                const state = get();
+                if (!state.unlockedMemories.includes(id)) {
+                    set({
+                        unlockedMemories: [...state.unlockedMemories, id],
+                        pendingMemoryUnlocks: [...state.pendingMemoryUnlocks, id]
+                    });
+                }
+            },
+
+            dismissMemoryNotification: () => {
+                set(state => ({
+                    pendingMemoryUnlocks: state.pendingMemoryUnlocks.slice(1),
+                }));
+            },
         }),
         {
             name: 'political-revolution-save',
@@ -754,6 +789,7 @@ export const useStore = create<GameState>()(
                 unlockedPolicies: state.unlockedPolicies,
                 unlockedMilestones: state.unlockedMilestones,
                 unlockedStructures: state.unlockedStructures,
+                unlockedMemories: state.unlockedMemories,
                 highestLifetimeEarnings: state.highestLifetimeEarnings,
                 currentRankId: state.currentRankId,
                 lastSaveTime: state.lastSaveTime,

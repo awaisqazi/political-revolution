@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../store/useStore';
+import { MEMORIES } from '../config/memories';
 
 export function useGameLoop() {
     const tick = useStore(state => state.tick);
@@ -14,6 +15,16 @@ export function useGameLoop() {
         // Cap delta to prevent huge jumps if tab was inactive
         const cappedDelta = Math.min(deltaMs, 100);
         tick(cappedDelta);
+
+        // Check for memory unlocks
+        const state = useStore.getState(); // Get fresh state
+        MEMORIES.forEach(memory => {
+            if (!state.unlockedMemories.includes(memory.id)) {
+                if (memory.trigger(state)) {
+                    state.unlockMemory(memory.id);
+                }
+            }
+        });
 
         animationFrameId.current = requestAnimationFrame(gameLoop);
     }, [tick]);
