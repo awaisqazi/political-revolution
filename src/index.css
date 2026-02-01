@@ -1,0 +1,138 @@
+@import "tailwindcss";
+
+/* ================================================
+   POLITICAL REVOLUTION - Design System
+   ================================================ */
+
+:root {
+  /* Primary - Progressive Blue */
+  --color-primary: #1a56db;
+  --color-primary-light: #3b82f6;
+  --color-primary-dark: #1e40af;
+  
+  /* Secondary - Solidarity Red */
+  --color-secondary: #dc2626;
+  --color-secondary-light: #ef4444;
+  
+  /* Accent - Hope Gold */
+  --color-accent: #f59e0b;
+  --color-accent-light: #fbbf24;
+  
+  /* Success - Grassroots Green */
+  --color-success: #10b981;
+  --color-success-light: #34d399;
+  
+  /* Momentum gradient */
+  --gradient-momentum: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899);
+  
+  /* Background */
+  --color-bg: #0f172a;
+  --color-bg-card: #1e293b;
+  --color-bg-elevated: #334155;
+  
+  /* Text */
+  --color-text: #f1f5f9;
+  --color-text-muted: #94a3b8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+body {
+  background: var(--color-bg);
+  background-image: 
+    radial-gradient(ellipse at top, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at bottom right, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
+  color: var(--color-text);
+  line-height: 1.6;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Glass Card Effect */
+.glass-card {
+  background: rgba(30, 41, 59, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 16px;
+}
+
+/* Momentum Bar Glow */
+.momentum-glow {
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.4),
+              0 0 40px rgba(139, 92, 246, 0.2);
+}
+
+.momentum-glow-intense {
+  box-shadow: 0 0 30px rgba(236, 72, 153, 0.5),
+              0 0 60px rgba(139, 92, 246, 0.3);
+}
+
+/* Button Press Animation */
+.btn-press {
+  transition: transform 0.1s ease;
+}
+
+.btn-press:active {
+  transform: scale(0.95);
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-bg-elevated);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* Activity Progress Bar */
+.progress-fill {
+  background: linear-gradient(90deg, var(--color-primary), var(--color-primary-light));
+  transition: width 0.1s linear;
+}
+
+/* Pulse Animation for Managers */
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.95);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.3);
+    opacity: 0;
+  }
+}
+
+.pulse-ring::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  border: 2px solid var(--color-success);
+  animation: pulse-ring 1.5s ease-out infinite;
+}
+
+/* Number Formatting */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
