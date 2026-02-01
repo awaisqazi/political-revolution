@@ -1,6 +1,23 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useStore } from '../store/useStore';
+import { POLICIES, type Policy } from '../config/policies';
 import type { Opponent } from '../config/stages';
+
+// ═══════════════════════════════════════════════════════════════
+// TYPE DEFINITIONS
+// ═══════════════════════════════════════════════════════════════
+
+export type MoveType = 'Logic' | 'Appeal' | 'Fact';
+
+export interface BattleMove {
+    id: string;
+    name: string;
+    damage: number;
+    maxCooldown: number; // Turns to recharge after use
+    type: MoveType;
+    description: string;
+    emoji: string;
+}
 
 export interface BattleLogEntry {
     id: string;
@@ -11,239 +28,273 @@ export interface BattleLogEntry {
 }
 
 export interface DebateState {
-    playerHealth: number;
-    maxPlayerHealth: number;
-    enemyHealth: number;
-    maxEnemyHealth: number;
-    isPlayerTurn: boolean;
+    playerHp: number;
+    maxPlayerHp: number;
+    enemyHp: number;
+    maxEnemyHp: number;
+    turn: 'player' | 'enemy';
+    cooldowns: Record<string, number>; // moveId -> turns remaining
     battleLog: BattleLogEntry[];
     isComplete: boolean;
     didPlayerWin: boolean;
+    isShaking: boolean; // For damage shake animation
 }
 
-export type AttackType = 'cite-statistics' | 'personal-story' | 'mobilize-base' | 'fact-check';
+// ═══════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════
 
-export interface Attack {
-    id: AttackType;
-    name: string;
-    emoji: string;
-    description: string;
-    scaleStat: string;
-    isHeal?: boolean;
-}
+// Calculate player HP based on polling (happiness) - scaled for fun gameplay
+const calculatePlayerHp = (happiness: number): number => {
+    // Base HP 100, happiness acts as percentage modifier
+    return Math.max(50, Math.floor(happiness * 1.5));
+};
 
-export const ATTACKS: Attack[] = [
-    {
-        id: 'cite-statistics',
-        name: 'Cite Statistics',
-        emoji: '📊',
-        description: 'Reference your policy record',
-        scaleStat: 'Policies Passed',
-    },
-    {
-        id: 'personal-story',
-        name: 'Share Personal Story',
-        emoji: '💬',
-        description: 'Connect with voters emotionally',
-        scaleStat: 'Happiness',
-    },
-    {
-        id: 'mobilize-base',
-        name: 'Mobilize Base',
-        emoji: '✊',
-        description: 'Rally your grassroots supporters',
-        scaleStat: 'Volunteers',
-    },
-    {
-        id: 'fact-check',
-        name: 'Fact Check',
-        emoji: '🔍',
-        description: 'Expose lies and recover credibility',
-        scaleStat: 'Momentum',
-        isHeal: true,
-    },
-];
+// Convert a policy to a battle move
+const policyToBattleMove = (policy: Policy, stageIndex: number): BattleMove => {
+    // Damage scales with cost, but also by stage (earlier stages = lower damage scale)
+    const stageDamageMultiplier = 1 + (stageIndex * 0.5);
+    const baseDamage = Math.ceil((policy.cost / 1000) * stageDamageMultiplier);
+    // Clamp damage between 5 and 50 for balance
+    const damage = Math.max(5, Math.min(50, baseDamage));
 
-const PLAYER_STARTING_HEALTH = 100;
+    // Cooldown based on cost: cheap = 0, expensive = 3
+    const cooldown = policy.cost <= 1000 ? 0
+        : policy.cost <= 10000 ? 1
+            : policy.cost <= 100000 ? 2
+                : 3;
+
+    // Determine move type based on policy characteristics
+    let type: MoveType = 'Logic';
+    if (policy.happinessChange >= 3) {
+        type = 'Appeal'; // High happiness = emotional appeal
+    } else if (policy.type === 'global') {
+        type = 'Fact'; // Global policies = systemic facts
+    }
+
+    // Emoji based on type
+    const emoji = type === 'Logic' ? '📊' : type === 'Appeal' ? '💬' : '📜';
+
+    return {
+        id: policy.id,
+        name: policy.name,
+        damage,
+        maxCooldown: cooldown,
+        type,
+        description: policy.description,
+        emoji,
+    };
+};
+
+// ═══════════════════════════════════════════════════════════════
+// THE HOOK
+// ═══════════════════════════════════════════════════════════════
 
 export function useDebate(opponent: Opponent | null) {
     const unlockedPolicies = useStore(state => state.unlockedPolicies);
     const happiness = useStore(state => state.happiness);
-    const volunteers = useStore(state => state.volunteers);
-    const momentum = useStore(state => state.momentum);
+    const currentStageIndex = useStore(state => state.currentStageIndex);
 
-    const [state, setState] = useState<DebateState>(() => ({
-        playerHealth: PLAYER_STARTING_HEALTH,
-        maxPlayerHealth: PLAYER_STARTING_HEALTH,
-        enemyHealth: opponent?.health ?? 100,
-        maxEnemyHealth: opponent?.health ?? 100,
-        isPlayerTurn: true,
-        battleLog: [],
-        isComplete: false,
-        didPlayerWin: false,
-    }));
+    // Generate battle moves from unlocked policies
+    const moves: BattleMove[] = unlockedPolicies
+        .map(id => POLICIES.find(p => p.id === id))
+        .filter((p): p is Policy => p !== undefined)
+        .map(policy => policyToBattleMove(policy, currentStageIndex));
 
-    // Reset battle state when starting a new debate
+    // If no policies unlocked, provide a basic attack
+    const defaultMove: BattleMove = {
+        id: 'basic-argument',
+        name: 'Basic Argument',
+        damage: 5,
+        maxCooldown: 0,
+        type: 'Logic',
+        description: 'A simple but honest point',
+        emoji: '💭',
+    };
+
+    const allMoves = moves.length > 0 ? moves : [defaultMove];
+
+    const [state, setState] = useState<DebateState>(() => {
+        const playerHp = calculatePlayerHp(happiness);
+        return {
+            playerHp,
+            maxPlayerHp: playerHp,
+            enemyHp: opponent?.health ?? 100,
+            maxEnemyHp: opponent?.health ?? 100,
+            turn: 'player',
+            cooldowns: {},
+            battleLog: [],
+            isComplete: false,
+            didPlayerWin: false,
+            isShaking: false,
+        };
+    });
+
+    // Reset battle when opponent changes or debate starts
     const resetBattle = useCallback(() => {
         if (!opponent) return;
+        const playerHp = calculatePlayerHp(happiness);
         setState({
-            playerHealth: PLAYER_STARTING_HEALTH,
-            maxPlayerHealth: PLAYER_STARTING_HEALTH,
-            enemyHealth: opponent.health,
-            maxEnemyHealth: opponent.health,
-            isPlayerTurn: true,
+            playerHp,
+            maxPlayerHp: playerHp,
+            enemyHp: opponent.health,
+            maxEnemyHp: opponent.health,
+            turn: 'player',
+            cooldowns: {},
             battleLog: [{
                 id: `system-${Date.now()}`,
-                text: `The debate begins! ${opponent.name} takes the stage.`,
+                text: `A wild ${opponent.name} appeared! "${opponent.description}"`,
                 type: 'system',
             }],
             isComplete: false,
             didPlayerWin: false,
+            isShaking: false,
         });
-    }, [opponent]);
+    }, [opponent, happiness]);
 
-    // Calculate attack damage based on player stats
-    const calculateAttackDamage = useCallback((attackId: AttackType): number => {
-        switch (attackId) {
-            case 'cite-statistics':
-                return 5 + (unlockedPolicies.length * 2);
-            case 'personal-story':
-                return 5 + Math.floor(happiness * 0.3);
-            case 'mobilize-base':
-                return 5 + Math.floor(volunteers / 50);
-            case 'fact-check':
-                // Heal amount
-                return 10 + Math.floor(momentum * 0.5);
-            default:
-                return 10;
-        }
-    }, [unlockedPolicies.length, happiness, volunteers, momentum]);
+    // Use a move (player attack)
+    const useMove = useCallback((moveId: string) => {
+        if (!opponent || state.isComplete || state.turn !== 'player') return;
 
-    // Get preview damage/heal for UI
-    const getAttackPreview = useCallback((attackId: AttackType): { value: number; isHeal: boolean } => {
-        const attack = ATTACKS.find(a => a.id === attackId);
-        return {
-            value: calculateAttackDamage(attackId),
-            isHeal: attack?.isHeal ?? false,
-        };
-    }, [calculateAttackDamage]);
+        const move = allMoves.find(m => m.id === moveId);
+        if (!move) return;
 
-    // Execute player attack
-    const executePlayerAttack = useCallback((attackId: AttackType) => {
-        if (!opponent || state.isComplete || !state.isPlayerTurn) return;
-
-        const attack = ATTACKS.find(a => a.id === attackId);
-        if (!attack) return;
-
-        const value = calculateAttackDamage(attackId);
+        // Check if move is on cooldown
+        if ((state.cooldowns[moveId] ?? 0) > 0) return;
 
         setState(prev => {
-            let newEnemyHealth = prev.enemyHealth;
-            let newPlayerHealth = prev.playerHealth;
-            let logText = '';
+            const newEnemyHp = Math.max(0, prev.enemyHp - move.damage);
 
-            if (attack.isHeal) {
-                // Fact Check heals player
-                newPlayerHealth = Math.min(prev.maxPlayerHealth, prev.playerHealth + value);
-                const actualHeal = newPlayerHealth - prev.playerHealth;
-                logText = `You fact-check ${opponent.name}'s claims! +${actualHeal} Credibility`;
-            } else {
-                // Attack damages enemy
-                newEnemyHealth = Math.max(0, prev.enemyHealth - value);
-                logText = `${attack.emoji} ${attack.name}! ${opponent.name} takes ${value} damage!`;
-            }
-
-            const newLog: BattleLogEntry = {
+            const logEntry: BattleLogEntry = {
                 id: `player-${Date.now()}`,
-                text: logText,
+                text: `${move.emoji} You used ${move.name}! It dealt ${move.damage} damage!`,
                 type: 'player',
-                damage: attack.isHeal ? undefined : value,
-                heal: attack.isHeal ? value : undefined,
+                damage: move.damage,
             };
 
-            // Check if player won
-            if (newEnemyHealth <= 0) {
+            // Set cooldown for this move
+            const newCooldowns = { ...prev.cooldowns };
+            if (move.maxCooldown > 0) {
+                newCooldowns[moveId] = move.maxCooldown;
+            }
+
+            // Check for victory
+            if (newEnemyHp <= 0) {
                 return {
                     ...prev,
-                    enemyHealth: 0,
-                    playerHealth: newPlayerHealth,
-                    battleLog: [...prev.battleLog, newLog, {
+                    enemyHp: 0,
+                    cooldowns: newCooldowns,
+                    battleLog: [...prev.battleLog, logEntry, {
                         id: `system-win-${Date.now()}`,
-                        text: `${opponent.name} concedes! The people have spoken!`,
+                        text: `🎉 ${opponent.name} has been defeated! The people have spoken!`,
                         type: 'system',
                     }],
                     isComplete: true,
                     didPlayerWin: true,
-                    isPlayerTurn: false,
+                    turn: 'player',
                 };
             }
 
             return {
                 ...prev,
-                enemyHealth: newEnemyHealth,
-                playerHealth: newPlayerHealth,
-                battleLog: [...prev.battleLog, newLog],
-                isPlayerTurn: false, // Enemy turn next
+                enemyHp: newEnemyHp,
+                cooldowns: newCooldowns,
+                battleLog: [...prev.battleLog, logEntry],
+                turn: 'enemy', // Switch to enemy turn
             };
         });
-    }, [opponent, state.isComplete, state.isPlayerTurn, calculateAttackDamage]);
+    }, [opponent, state.isComplete, state.turn, state.cooldowns, allMoves]);
 
-    // Execute enemy attack (called after player turn)
-    const executeEnemyAttack = useCallback(() => {
-        if (!opponent || state.isComplete || state.isPlayerTurn) return;
+    // Enemy turn - called automatically after player turn
+    const executeEnemyTurn = useCallback(() => {
+        if (!opponent || state.isComplete || state.turn !== 'enemy') return;
 
-        const damage = opponent.damagePerTurn;
+        // Pick a random attack from opponent's repertoire
+        const attackName = opponent.attacks[Math.floor(Math.random() * opponent.attacks.length)];
+        const damage = opponent.baseDamage;
 
         setState(prev => {
-            const newPlayerHealth = Math.max(0, prev.playerHealth - damage);
+            const newPlayerHp = Math.max(0, prev.playerHp - damage);
 
-            // Random enemy attack flavor text
-            const attackTexts = [
-                `${opponent.name} attacks your record! -${damage} Credibility`,
-                `${opponent.name} runs a negative ad! -${damage} Credibility`,
-                `${opponent.name} questions your experience! -${damage} Credibility`,
-                `${opponent.name} deflects and attacks! -${damage} Credibility`,
-            ];
-            const logText = attackTexts[Math.floor(Math.random() * attackTexts.length)];
+            // Decrement all cooldowns
+            const newCooldowns: Record<string, number> = {};
+            for (const [moveId, cd] of Object.entries(prev.cooldowns)) {
+                if (cd > 1) {
+                    newCooldowns[moveId] = cd - 1;
+                }
+                // If cd === 1, it becomes 0 and is removed
+            }
 
-            const newLog: BattleLogEntry = {
+            const logEntry: BattleLogEntry = {
                 id: `enemy-${Date.now()}`,
-                text: logText,
+                text: `⚔️ ${opponent.name} used ${attackName}! You took ${damage} damage!`,
                 type: 'enemy',
                 damage,
             };
 
-            // Check if player lost
-            if (newPlayerHealth <= 0) {
+            // Check for defeat
+            if (newPlayerHp <= 0) {
                 return {
                     ...prev,
-                    playerHealth: 0,
-                    battleLog: [...prev.battleLog, newLog, {
+                    playerHp: 0,
+                    cooldowns: newCooldowns,
+                    battleLog: [...prev.battleLog, logEntry, {
                         id: `system-lose-${Date.now()}`,
-                        text: `Your credibility is destroyed. The debate is lost.`,
+                        text: `💔 Your credibility has been destroyed. The debate is lost...`,
                         type: 'system',
                     }],
                     isComplete: true,
                     didPlayerWin: false,
-                    isPlayerTurn: false,
+                    turn: 'enemy',
+                    isShaking: true,
                 };
             }
 
             return {
                 ...prev,
-                playerHealth: newPlayerHealth,
-                battleLog: [...prev.battleLog, newLog],
-                isPlayerTurn: true, // Player turn next
+                playerHp: newPlayerHp,
+                cooldowns: newCooldowns,
+                battleLog: [...prev.battleLog, logEntry],
+                turn: 'player', // Back to player turn
+                isShaking: true, // Trigger shake
             };
         });
-    }, [opponent, state.isComplete, state.isPlayerTurn]);
+
+        // Reset shake after animation
+        setTimeout(() => {
+            setState(prev => ({ ...prev, isShaking: false }));
+        }, 300);
+    }, [opponent, state.isComplete, state.turn]);
+
+    // Auto-execute enemy turn after player's turn
+    useEffect(() => {
+        if (state.turn === 'enemy' && !state.isComplete) {
+            const timer = setTimeout(() => {
+                executeEnemyTurn();
+            }, 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [state.turn, state.isComplete, executeEnemyTurn]);
+
+    // Get move preview info
+    const getMovePreview = useCallback((moveId: string) => {
+        const move = allMoves.find(m => m.id === moveId);
+        if (!move) return { damage: 0, cooldown: 0, onCooldown: false, turnsRemaining: 0 };
+
+        const turnsRemaining = state.cooldowns[moveId] ?? 0;
+        return {
+            damage: move.damage,
+            cooldown: move.maxCooldown,
+            onCooldown: turnsRemaining > 0,
+            turnsRemaining,
+        };
+    }, [allMoves, state.cooldowns]);
 
     return {
         state,
-        attacks: ATTACKS,
-        executePlayerAttack,
-        executeEnemyAttack,
-        getAttackPreview,
+        moves: allMoves,
+        useMove,
+        getMovePreview,
         resetBattle,
     };
 }

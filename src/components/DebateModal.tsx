@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../store/useStore';
-import { useDebate, ATTACKS } from '../hooks/useDebate';
+import { useDebate } from '../hooks/useDebate';
 import { useAudio } from '../hooks/useAudio';
 import { STAGES } from '../config/stages';
 
@@ -17,9 +17,9 @@ export function DebateModal() {
 
     const {
         state: battleState,
-        executePlayerAttack,
-        executeEnemyAttack,
-        getAttackPreview,
+        moves,
+        useMove,
+        getMovePreview,
         resetBattle,
     } = useDebate(currentOpponent);
 
@@ -32,17 +32,6 @@ export function DebateModal() {
         }
     }, [activeDebate, currentOpponent, resetBattle]);
 
-    // Enemy turn logic
-    useEffect(() => {
-        if (!activeDebate || battleState.isComplete || battleState.isPlayerTurn) return;
-
-        const timer = setTimeout(() => {
-            executeEnemyAttack();
-        }, 1200);
-
-        return () => clearTimeout(timer);
-    }, [activeDebate, battleState.isPlayerTurn, battleState.isComplete, executeEnemyAttack]);
-
     // Handle battle completion
     useEffect(() => {
         if (!battleState.isComplete) return;
@@ -54,7 +43,7 @@ export function DebateModal() {
             } else {
                 loseDebate();
             }
-        }, 2000);
+        }, 2500);
 
         return () => clearTimeout(timer);
     }, [battleState.isComplete, battleState.didPlayerWin, winDebate, loseDebate, play]);
@@ -93,8 +82,14 @@ export function DebateModal() {
     };
 
     const accent = getAccentClasses();
-    const playerHealthPercent = (battleState.playerHealth / battleState.maxPlayerHealth) * 100;
-    const enemyHealthPercent = (battleState.enemyHealth / battleState.maxEnemyHealth) * 100;
+    const playerHealthPercent = (battleState.playerHp / battleState.maxPlayerHp) * 100;
+    const enemyHealthPercent = (battleState.enemyHp / battleState.maxEnemyHp) * 100;
+
+    // Screen shake animation
+    const shakeAnimation = battleState.isShaking ? {
+        x: [-8, 8, -6, 6, -4, 4, -2, 2, 0],
+        transition: { duration: 0.4 }
+    } : {};
 
     return (
         <AnimatePresence>
@@ -113,107 +108,115 @@ export function DebateModal() {
                         exit={{ opacity: 0 }}
                     />
 
-                    {/* Modal Container */}
+                    {/* Modal Container with Shake */}
                     <motion.div
-                        className={`relative w-full max-w-4xl bg-slate-900/95 rounded-xl border ${accent.border} shadow-2xl ${accent.glow} overflow-hidden`}
+                        className={`relative w-full max-w-3xl max-h-[90vh] bg-slate-900/95 rounded-xl border ${accent.border} shadow-2xl ${accent.glow} overflow-hidden flex flex-col`}
                         initial={{ scale: 0.8, opacity: 0, y: 20 }}
-                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                        animate={{ scale: 1, opacity: 1, y: 0, ...shakeAnimation }}
                         exit={{ scale: 0.8, opacity: 0, y: 20 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
                     >
                         {/* TV Broadcast Header */}
-                        <div className={`bg-gradient-to-r ${accent.gradient} px-4 py-2 flex items-center justify-between`}>
-                            <div className="flex items-center gap-3">
+                        <div className={`bg-gradient-to-r ${accent.gradient} px-3 py-1.5 flex items-center justify-between flex-shrink-0`}>
+                            <div className="flex items-center gap-2">
                                 <motion.div
-                                    className="px-2 py-1 bg-red-600 text-white text-xs font-bold rounded"
+                                    className="px-1.5 py-0.5 bg-red-600 text-white text-[10px] font-bold rounded"
                                     animate={{ opacity: [1, 0.5, 1] }}
                                     transition={{ repeat: Infinity, duration: 1 }}
                                 >
                                     🔴 LIVE
                                 </motion.div>
-                                <span className="text-white font-semibold">
+                                <span className="text-white font-semibold text-sm">
                                     {currentStage?.name} Debate
                                 </span>
                             </div>
-                            <div className="text-white/80 text-sm">
-                                📺 POLITICAL REVOLUTION NETWORK
+                            <div className="text-white/80 text-xs">
+                                📺 PRN
                             </div>
                         </div>
 
-                        {/* Battle Arena */}
-                        <div className="p-6">
-                            {/* Combatants Row */}
-                            <div className="grid grid-cols-2 gap-8 mb-6">
-                                {/* Player Side */}
-                                <div className="text-center">
-                                    <div className="text-4xl mb-2">✊</div>
-                                    <div className="text-lg font-bold text-white">You</div>
-                                    <div className="text-sm text-slate-400 mb-3">The Challenger</div>
+                        {/* Scrollable Battle Arena */}
+                        <div className="flex-1 overflow-y-auto p-4">
+                            {/* Combatants Row - Compact */}
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                {/* Player Side (LEFT) */}
+                                <div className="relative">
+                                    <div className="bg-slate-800/50 rounded-lg p-3 border border-emerald-500/20">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <div className="text-2xl">✊</div>
+                                            <div>
+                                                <div className="text-sm font-bold text-emerald-400">You</div>
+                                                <div className="text-[10px] text-slate-400">The Challenger</div>
+                                            </div>
+                                        </div>
 
-                                    {/* Player Health Bar */}
-                                    <div className="relative h-6 bg-slate-800 rounded-full overflow-hidden">
-                                        <motion.div
-                                            className={`absolute inset-y-0 left-0 ${playerHealthPercent > 30 ? 'bg-gradient-to-r from-emerald-500 to-green-400' : 'bg-gradient-to-r from-red-500 to-orange-400'}`}
-                                            initial={{ width: '100%' }}
-                                            animate={{ width: `${playerHealthPercent}%` }}
-                                            transition={{ type: 'spring', damping: 15 }}
-                                        />
-                                        <div className="absolute inset-0 flex items-center justify-center">
-                                            <span className="text-xs font-bold text-white drop-shadow-lg">
-                                                {battleState.playerHealth} / {battleState.maxPlayerHealth}
-                                            </span>
+                                        {/* Player Health Bar */}
+                                        <div className="relative h-6 bg-slate-700 rounded-full overflow-hidden border border-emerald-500/30">
+                                            <motion.div
+                                                className={`absolute inset-y-0 left-0 ${playerHealthPercent > 50
+                                                    ? 'bg-gradient-to-r from-emerald-500 to-green-400'
+                                                    : playerHealthPercent > 25
+                                                        ? 'bg-gradient-to-r from-yellow-500 to-amber-400'
+                                                        : 'bg-gradient-to-r from-red-500 to-rose-400'
+                                                    }`}
+                                                initial={{ width: '100%' }}
+                                                animate={{ width: `${playerHealthPercent}%` }}
+                                                transition={{ type: 'spring', damping: 15 }}
+                                            />
+                                            <div className="absolute inset-0 flex items-center justify-center">
+                                                <span className="text-xs font-bold text-white drop-shadow-lg">
+                                                    {battleState.playerHp}/{battleState.maxPlayerHp}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="text-xs text-slate-500 mt-1">Your Credibility</div>
                                 </div>
 
-                                {/* Enemy Side */}
-                                <div className="text-center">
-                                    <div className="text-4xl mb-2">🎭</div>
-                                    <div className="text-lg font-bold text-rose-400">{currentOpponent.name}</div>
-                                    <div className="text-sm text-slate-400 mb-3">{currentOpponent.title}</div>
+                                {/* Enemy Side (RIGHT) */}
+                                <div className="relative">
+                                    <div className="bg-slate-800/50 rounded-lg p-3 border border-rose-500/20">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <div className="text-2xl">🎭</div>
+                                            <div>
+                                                <div className="text-sm font-bold text-rose-400">{currentOpponent.name}</div>
+                                                <div className="text-[10px] text-slate-400">{currentOpponent.title}</div>
+                                            </div>
+                                        </div>
 
-                                    {/* Enemy Health Bar */}
-                                    <div className="relative h-6 bg-slate-800 rounded-full overflow-hidden">
-                                        <motion.div
-                                            className="absolute inset-y-0 left-0 bg-gradient-to-r from-rose-500 to-red-400"
-                                            initial={{ width: '100%' }}
-                                            animate={{ width: `${enemyHealthPercent}%` }}
-                                            transition={{ type: 'spring', damping: 15 }}
-                                        />
-                                        <div className="absolute inset-0 flex items-center justify-center">
-                                            <span className="text-xs font-bold text-white drop-shadow-lg">
-                                                {battleState.enemyHealth} / {battleState.maxEnemyHealth}
-                                            </span>
+                                        {/* Enemy Health Bar */}
+                                        <div className="relative h-6 bg-slate-700 rounded-full overflow-hidden border border-rose-500/30">
+                                            <motion.div
+                                                className="absolute inset-y-0 left-0 bg-gradient-to-r from-rose-500 to-red-400"
+                                                initial={{ width: '100%' }}
+                                                animate={{ width: `${enemyHealthPercent}%` }}
+                                                transition={{ type: 'spring', damping: 15 }}
+                                            />
+                                            <div className="absolute inset-0 flex items-center justify-center">
+                                                <span className="text-xs font-bold text-white drop-shadow-lg">
+                                                    {battleState.enemyHp}/{battleState.maxEnemyHp}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="text-xs text-slate-500 mt-1">Their Credibility</div>
                                 </div>
                             </div>
 
-                            {/* Opponent Description */}
-                            <div className="text-center mb-4">
-                                <p className="text-sm text-slate-400 italic">
-                                    "{currentOpponent.description}"
-                                </p>
-                            </div>
-
-                            {/* Battle Log - News Chyron Style */}
-                            <div className="bg-slate-800/50 rounded-lg p-3 mb-6 h-32 overflow-y-auto border border-slate-700">
-                                <div className="space-y-2">
+                            {/* Battle Log - Compact */}
+                            <div className="bg-slate-950 rounded-lg p-3 mb-4 h-24 overflow-y-auto border-2 border-slate-700">
+                                <div className="space-y-2 font-mono">
                                     {battleState.battleLog.map(entry => (
                                         <motion.div
                                             key={entry.id}
-                                            initial={{ opacity: 0, x: -20 }}
-                                            animate={{ opacity: 1, x: 0 }}
-                                            className={`text-sm px-2 py-1 rounded ${entry.type === 'player'
-                                                    ? 'bg-emerald-900/30 text-emerald-300 border-l-2 border-emerald-500'
-                                                    : entry.type === 'enemy'
-                                                        ? 'bg-rose-900/30 text-rose-300 border-l-2 border-rose-500'
-                                                        : 'bg-amber-900/30 text-amber-300 border-l-2 border-amber-500'
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            className={`text-sm ${entry.type === 'player'
+                                                ? 'text-emerald-300'
+                                                : entry.type === 'enemy'
+                                                    ? 'text-rose-300'
+                                                    : 'text-amber-300 font-bold'
                                                 }`}
                                         >
-                                            {entry.text}
+                                            ▸ {entry.text}
                                         </motion.div>
                                     ))}
                                     <div ref={logEndRef} />
@@ -221,67 +224,99 @@ export function DebateModal() {
                             </div>
 
                             {/* Turn Indicator */}
-                            <div className="text-center mb-4">
+                            <div className="text-center mb-3">
                                 {battleState.isComplete ? (
                                     <motion.div
                                         initial={{ scale: 0 }}
                                         animate={{ scale: 1 }}
-                                        className={`text-2xl font-bold ${battleState.didPlayerWin ? 'text-emerald-400' : 'text-rose-400'}`}
+                                        className={`text-xl font-bold ${battleState.didPlayerWin ? 'text-emerald-400' : 'text-rose-400'}`}
                                     >
                                         {battleState.didPlayerWin ? '🎉 VICTORY!' : '💔 DEFEATED'}
                                     </motion.div>
                                 ) : (
-                                    <div className={`text-sm font-medium ${battleState.isPlayerTurn ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        {battleState.isPlayerTurn ? '✨ Your Turn - Choose Your Attack!' : '⏳ Opponent is responding...'}
-                                    </div>
+                                    <motion.div
+                                        className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm ${battleState.turn === 'player'
+                                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                            : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                            }`}
+                                        animate={{ scale: [1, 1.02, 1] }}
+                                        transition={{ repeat: Infinity, duration: 1.5 }}
+                                    >
+                                        {battleState.turn === 'player'
+                                            ? '⚔️ Choose a Policy!'
+                                            : '⏳ Enemy turn...'}
+                                    </motion.div>
                                 )}
                             </div>
 
-                            {/* Attack Buttons */}
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                {ATTACKS.map(attack => {
-                                    const preview = getAttackPreview(attack.id);
-                                    const isDisabled = !battleState.isPlayerTurn || battleState.isComplete;
+                            {/* Move Buttons - Compact Policy Grid */}
+                            <div className="bg-slate-800/30 rounded-lg p-3 border border-slate-700">
+                                <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-2">
+                                    📜 Your Moves (Policies)
+                                </div>
+                                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                                    {moves.map(move => {
+                                        const preview = getMovePreview(move.id);
+                                        const isDisabled = battleState.turn !== 'player' || battleState.isComplete || preview.onCooldown;
 
-                                    return (
-                                        <motion.button
-                                            key={attack.id}
-                                            onClick={() => {
-                                                if (!isDisabled) {
-                                                    play('buy');
-                                                    executePlayerAttack(attack.id);
-                                                }
-                                            }}
-                                            disabled={isDisabled}
-                                            className={`p-3 rounded-xl text-left transition-all ${isDisabled
-                                                    ? 'bg-slate-800/50 opacity-50 cursor-not-allowed'
-                                                    : attack.isHeal
-                                                        ? 'bg-gradient-to-br from-cyan-600/20 to-blue-600/20 hover:from-cyan-600/40 hover:to-blue-600/40 border border-cyan-500/30'
-                                                        : 'bg-gradient-to-br from-emerald-600/20 to-green-600/20 hover:from-emerald-600/40 hover:to-green-600/40 border border-emerald-500/30'
-                                                }`}
-                                            whileHover={isDisabled ? {} : { scale: 1.02 }}
-                                            whileTap={isDisabled ? {} : { scale: 0.98 }}
-                                        >
-                                            <div className="text-2xl mb-1">{attack.emoji}</div>
-                                            <div className="text-sm font-semibold text-white">{attack.name}</div>
-                                            <div className="text-xs text-slate-400 mb-2">{attack.description}</div>
-                                            <div className={`text-xs font-medium ${attack.isHeal ? 'text-cyan-400' : 'text-emerald-400'}`}>
-                                                {attack.isHeal ? `+${preview.value} Heal` : `${preview.value} Damage`}
-                                            </div>
-                                            <div className="text-xs text-slate-500">
-                                                Scales: {attack.scaleStat}
-                                            </div>
-                                        </motion.button>
-                                    );
-                                })}
+                                        return (
+                                            <motion.button
+                                                key={move.id}
+                                                onClick={() => {
+                                                    if (!isDisabled) {
+                                                        play('buy');
+                                                        useMove(move.id);
+                                                    }
+                                                }}
+                                                disabled={isDisabled}
+                                                className={`relative p-2 rounded-lg text-left transition-all overflow-hidden ${preview.onCooldown
+                                                    ? 'bg-slate-800/80 opacity-60 cursor-not-allowed'
+                                                    : isDisabled
+                                                        ? 'bg-slate-800/50 opacity-50 cursor-not-allowed'
+                                                        : 'bg-gradient-to-br from-emerald-600/20 to-cyan-600/20 hover:from-emerald-600/40 hover:to-cyan-600/40 border border-emerald-500/30 cursor-pointer'
+                                                    }`}
+                                                whileHover={isDisabled ? {} : { scale: 1.02 }}
+                                                whileTap={isDisabled ? {} : { scale: 0.98 }}
+                                            >
+                                                {/* Cooldown Overlay */}
+                                                {preview.onCooldown && (
+                                                    <div className="absolute inset-0 bg-slate-900/70 flex items-center justify-center">
+                                                        <div className="text-center">
+                                                            <div className="text-lg">⏳</div>
+                                                            <div className="text-[10px] text-slate-400">
+                                                                {preview.turnsRemaining}T
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                <div className="text-xs font-semibold text-white truncate mb-1">{move.name}</div>
+                                                <div className="flex items-center justify-between">
+                                                    <div className="text-[10px] font-medium text-emerald-400">
+                                                        ⚔️ {move.damage}
+                                                    </div>
+                                                    {move.maxCooldown > 0 && !preview.onCooldown && (
+                                                        <div className="text-[10px] text-slate-500">
+                                                            CD:{move.maxCooldown}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </motion.button>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         </div>
 
                         {/* Bottom Chyron */}
-                        <div className="bg-slate-950 px-4 py-2 border-t border-slate-800">
-                            <div className="flex items-center justify-between text-xs text-slate-500">
-                                <span>📍 {currentStage?.name} Electoral Race</span>
-                                <span>Win to advance your political career</span>
+                        <div className="bg-slate-950 px-3 py-1.5 border-t border-slate-800 flex-shrink-0">
+                            <div className="flex items-center justify-between text-[10px] text-slate-500">
+                                <span>📍 {currentStage?.name}</span>
+                                <span className="flex items-center gap-2">
+                                    <span className="text-emerald-400">Win → Stage Up</span>
+                                    <span className="text-slate-600">|</span>
+                                    <span className="text-rose-400">Lose → -10 Happiness</span>
+                                </span>
                             </div>
                         </div>
                     </motion.div>

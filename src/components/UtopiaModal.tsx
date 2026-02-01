@@ -1,15 +1,21 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../store/useStore';
 import { useState } from 'react';
+import { hasAllPresidentPolicies } from '../config/policies';
 
 export function UtopiaModal() {
     const utopiaAchieved = useStore(state => state.utopiaAchieved);
     const currentStageIndex = useStore(state => state.currentStageIndex);
     const happiness = useStore(state => state.happiness);
+    const unlockedPolicies = useStore(state => state.unlockedPolicies);
     const [dismissed, setDismissed] = useState(false);
 
-    // Only show if utopia is achieved and not dismissed
-    const isVisible = utopiaAchieved && currentStageIndex === 2 && happiness >= 100 && !dismissed;
+    // Only show if utopia is achieved (happiness 100% + all President policies) and not dismissed
+    const isVisible = utopiaAchieved &&
+        currentStageIndex === 2 &&
+        happiness >= 100 &&
+        hasAllPresidentPolicies(unlockedPolicies) &&
+        !dismissed;
 
     if (!isVisible) return null;
 

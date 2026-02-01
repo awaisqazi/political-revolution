@@ -11,7 +11,8 @@ export interface Opponent {
     imagePrompt: string;
     description: string;
     health: number;
-    damagePerTurn: number;
+    baseDamage: number;
+    attacks: string[]; // Flavor text for their establishment moves
 }
 
 export interface GameStage {
@@ -50,7 +51,8 @@ export const STAGES: GameStage[] = [
             imagePrompt: 'Smug middle-aged politician in expensive suit, slicked back hair, dismissive expression',
             description: 'A career politician backed by real estate developers who has never met a tenant he couldn\'t evict.',
             health: 50,
-            damagePerTurn: 8,
+            baseDamage: 8,
+            attacks: ['Backroom Deal', 'Donor Call', 'Dismissive Wave', 'Crocodile Tears'],
         },
     },
     {
@@ -71,7 +73,8 @@ export const STAGES: GameStage[] = [
             imagePrompt: 'Stern woman in power suit with pearl necklace, cold calculating eyes, forced smile',
             description: 'She\'s approved every luxury condo project while blocking affordable housing for a decade.',
             health: 75,
-            damagePerTurn: 10,
+            baseDamage: 10,
+            attacks: ['Rezoning Scheme', 'Tax Increment Trap', 'Condescend', 'Delay Tactic'],
         },
     },
     {
@@ -92,7 +95,8 @@ export const STAGES: GameStage[] = [
             imagePrompt: 'Heavyset older man with American flag pin, fake tan, pointing aggressively at camera',
             description: 'Twenty years in office. Zero progress. Infinite corruption.',
             health: 100,
-            damagePerTurn: 12,
+            baseDamage: 12,
+            attacks: ['Machine Politics', 'Patronage Network', 'Old Guard Defense', 'Mudslinging'],
         },
     },
     {
@@ -113,7 +117,8 @@ export const STAGES: GameStage[] = [
             imagePrompt: 'Elderly senator in navy suit, patronizing smile, surrounded by lobbyists in shadows',
             description: 'He\'s been "working across the aisle" for 30 years without passing a single progressive bill.',
             health: 125,
-            damagePerTurn: 14,
+            baseDamage: 14,
+            attacks: ['Filibuster', 'Committee Burial', 'Procedural Block', 'Bipartisan Betrayal'],
         },
     },
     {
@@ -134,7 +139,8 @@ export const STAGES: GameStage[] = [
             imagePrompt: 'Polished politician in expensive watch, rehearsed gestures, empty eyes behind glasses',
             description: 'Vetoed healthcare, education, and climate bills. Approved every corporate tax break.',
             health: 150,
-            damagePerTurn: 16,
+            baseDamage: 16,
+            attacks: ['Executive Veto', 'Corporate Donation', 'Lobbyist Lunch', 'Focus Group Strike'],
         },
     },
     {
@@ -155,7 +161,8 @@ export const STAGES: GameStage[] = [
             imagePrompt: 'Imposing figure behind presidential podium, golden cufflinks, smug billionaire energy',
             description: 'Net worth: $50 billion. Tax paid last year: $750. Democracy is just a business expense to him.',
             health: 200,
-            damagePerTurn: 18,
+            baseDamage: 18,
+            attacks: ['Super PAC Attack', 'Media Monopoly', 'Tax Haven Shield', 'Hostile Takeover'],
         },
     },
     {

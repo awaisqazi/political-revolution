@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { ACTIVITIES, getActivityCost, getManagerCost } from '../config/activities';
-import { POLICIES, getPolicyById, type Policy } from '../config/policies';
+import { POLICIES, getPolicyById, hasAllPresidentPolicies, type Policy } from '../config/policies';
 import { RANKS, getRankForEarnings } from '../config/ranks';
 import {
     getMilestoneSpeedMultiplier,
@@ -369,13 +369,16 @@ export const useStore = create<GameState>()(
                 // Check if we have enough funds
                 if (state.funds >= policy.cost) {
                     const newHappiness = Math.min(100, Math.max(0, state.happiness + policy.happinessChange));
+                    const newUnlockedPolicies = [...state.unlockedPolicies, id];
 
-                    // Check for Utopia condition
-                    const isUtopia = state.currentStageIndex === 2 && newHappiness >= 100;
+                    // Check for Utopia condition: max happiness + all President policies unlocked
+                    const isUtopia = state.currentStageIndex === 2 &&
+                        newHappiness >= 100 &&
+                        hasAllPresidentPolicies(newUnlockedPolicies);
 
                     set(state => ({
                         funds: state.funds - policy.cost,
-                        unlockedPolicies: [...state.unlockedPolicies, id],
+                        unlockedPolicies: newUnlockedPolicies,
                         happiness: newHappiness,
                         // Set policy for modal if it has impact content
                         lastPurchasedPolicy: policy.impactDescription ? policy : null,
@@ -826,12 +829,12 @@ export const useStore = create<GameState>()(
             },
 
             loseDebate: () => {
-                // Penalty: Reset happiness to 45% and close debate
-                set({
-                    happiness: 45,
+                // Penalty: Happiness drops by 10 (the public is demoralized)
+                set(state => ({
+                    happiness: Math.max(0, state.happiness - 10),
                     activeDebate: false,
                     currentOpponent: null,
-                });
+                }));
             },
         }),
         {

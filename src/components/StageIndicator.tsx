@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { useStore } from '../store/useStore';
 import { useAudio } from '../hooks/useAudio';
 import { STAGES, canPromoteStage } from '../config/stages';
+import { hasAllPresidentPolicies, getPoliciesForStage } from '../config/policies';
 import { formatMoney } from '../utils/formatting';
 
 export function StageIndicator() {
@@ -13,7 +14,14 @@ export function StageIndicator() {
     const currentStage = STAGES[currentStageIndex];
     const nextStage = STAGES[currentStageIndex + 1];
     const canPromote = canPromoteStage(currentStageIndex, lifetimeEarnings, happiness);
+    const unlockedPolicies = useStore(state => state.unlockedPolicies);
     const { play } = useAudio();
+
+    // Check President policies for Utopia requirement
+    const presidentPolicyCount = getPoliciesForStage('president').length;
+    const unlockedPresidentCount = getPoliciesForStage('president').filter(p => unlockedPolicies.includes(p.id)).length;
+    const hasAllPresidents = hasAllPresidentPolicies(unlockedPolicies);
+    const utopiaReached = happiness >= 100 && hasAllPresidents;
 
     const getStageColor = () => {
         switch (currentStage.colorTheme) {
@@ -145,12 +153,30 @@ export function StageIndicator() {
                 </div>
             )}
 
-            {/* Final Stage Message */}
+            {/* Final Stage Message - Utopia Requirements */}
             {!nextStage && (
-                <div className="text-center py-2">
-                    <span className="text-sm text-rose-300">
-                        {happiness >= 100 ? '✨ Utopia Achieved!' : 'Reach 100% Happiness for Utopia'}
-                    </span>
+                <div className="space-y-2 py-2">
+                    {utopiaReached ? (
+                        <div className="text-center">
+                            <span className="text-lg text-emerald-400">✨ Utopia Achieved!</span>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="text-xs text-slate-400">Utopia Requirements:</div>
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="text-slate-400">😊 Happiness</span>
+                                <span className={happiness >= 100 ? 'text-emerald-400' : 'text-amber-400'}>
+                                    {happiness >= 100 ? '✓ 100%' : `${happiness}% / 100%`}
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="text-slate-400">📜 Federal Policies</span>
+                                <span className={hasAllPresidents ? 'text-emerald-400' : 'text-amber-400'}>
+                                    {hasAllPresidents ? `✓ All ${presidentPolicyCount}` : `${unlockedPresidentCount} / ${presidentPolicyCount}`}
+                                </span>
+                            </div>
+                        </>
+                    )}
                 </div>
             )}
         </div>

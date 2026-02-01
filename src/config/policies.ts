@@ -275,3 +275,9 @@ export function getStagesWithPolicies(): StageId[] {
     const stagesWithPolicies = new Set(POLICIES.map(p => p.stage));
     return stageOrder.filter(s => stagesWithPolicies.has(s));
 }
+
+// Check if all President-stage policies are unlocked (required for Utopia)
+export function hasAllPresidentPolicies(unlockedPolicies: string[]): boolean {
+    const presidentPolicies = getPoliciesForStage('president');
+    return presidentPolicies.every(p => unlockedPolicies.includes(p.id));
+}
