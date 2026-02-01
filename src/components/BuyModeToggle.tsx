@@ -25,9 +25,8 @@ export function BuyModeToggle() {
     return (
         <motion.button
             onClick={cycleBuyMode}
-            className={`px-4 py-2 rounded-xl font-bold text-sm text-white shadow-lg transition-all bg-gradient-to-r ${MODE_COLORS[buyMode]}`}
+            className={`px-4 py-2 rounded-xl font-bold text-sm text-white shadow-lg transition-all active:scale-95 bg-gradient-to-r ${MODE_COLORS[buyMode]}`}
             whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
             title="Click to cycle: x1 → x10 → x100 → Next → Max"
         >
             <div className="flex items-center gap-2">

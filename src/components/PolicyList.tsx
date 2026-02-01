@@ -118,11 +118,11 @@ export function PolicyList() {
                                     return (
                                         <motion.div
                                             key={policy.id}
-                                            initial={{ opacity: 0, y: 20 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            transition={{ delay: index * 0.05 }}
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            transition={{ delay: index * 0.03 }}
                                             className={`
-                                                relative overflow-hidden rounded-xl p-4
+                                                relative overflow-hidden rounded-xl p-3 lg:p-4
                                                 ${isUnlocked
                                                     ? 'bg-gradient-to-br from-emerald-900/30 to-green-900/30 border border-emerald-500/30'
                                                     : 'bg-gradient-to-br from-slate-800 to-slate-900/80 border border-slate-700'
@@ -184,7 +184,7 @@ export function PolicyList() {
                                                     disabled={!canAfford}
                                                     className={`
                                                         w-full py-2 px-4 rounded-lg font-medium text-sm
-                                                        transition-all duration-200
+                                                        transition-all duration-200 active:scale-[0.98]
                                                         ${canAfford
                                                             ? hasImpact
                                                                 ? 'bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white shadow-lg shadow-emerald-900/30'
@@ -192,8 +192,6 @@ export function PolicyList() {
                                                             : 'bg-slate-700/50 text-slate-500 cursor-not-allowed'
                                                         }
                                                     `}
-                                                    whileHover={canAfford ? { scale: 1.02 } : {}}
-                                                    whileTap={canAfford ? { scale: 0.98 } : {}}
                                                 >
                                                     {formatMoney(policy.cost)}
                                                 </motion.button>

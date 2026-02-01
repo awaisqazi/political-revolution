@@ -87,10 +87,10 @@ export function ActivityCard({ activity }: ActivityCardProps) {
 
     return (
         <motion.div
-            className={`glass-card p-4 relative overflow-hidden ${canManuallyRun ? 'cursor-pointer hover:ring-2 hover:ring-blue-400/50' : ''}`}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
+            className={`glass-card p-3 lg:p-4 relative overflow-hidden ${canManuallyRun ? 'cursor-pointer hover:ring-2 hover:ring-blue-400/50' : ''}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.2 }}
             onClick={() => canManuallyRun && runActivity(activity.id)}
         >
             {/* Header */}
@@ -190,12 +190,10 @@ export function ActivityCard({ activity }: ActivityCardProps) {
                         if (purchased > 0) play('buy');
                     }}
                     disabled={!canAffordBulk}
-                    className={`flex-1 py-2 px-3 rounded-lg font-medium text-sm transition-all ${canAffordBulk
+                    className={`flex-1 py-2 px-3 rounded-lg font-medium text-sm transition-all active:scale-[0.98] ${canAffordBulk
                         ? 'bg-blue-600 hover:bg-blue-500 text-white'
                         : 'bg-slate-700/50 text-slate-500 cursor-not-allowed'
                         }`}
-                    whileHover={canAffordBulk ? { scale: 1.02 } : {}}
-                    whileTap={canAffordBulk ? { scale: 0.98 } : {}}
                 >
                     {getBuyLabel()}
                 </motion.button>
@@ -205,12 +203,10 @@ export function ActivityCard({ activity }: ActivityCardProps) {
                     <motion.button
                         onClick={(e) => { e.stopPropagation(); hireManager(activity.id); play('buy'); }}
                         disabled={!canAffordManager}
-                        className={`py-2 px-3 rounded-lg font-medium text-sm transition-all ${canAffordManager
+                        className={`py-2 px-3 rounded-lg font-medium text-sm transition-all active:scale-[0.98] ${canAffordManager
                             ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
                             : 'bg-slate-700/50 text-slate-500 cursor-not-allowed'
                             }`}
-                        whileHover={canAffordManager ? { scale: 1.02 } : {}}
-                        whileTap={canAffordManager ? { scale: 0.98 } : {}}
                         title={`Hire Manager: $${formatNumber(managerCost)}`}
                     >
                         🧑‍💼 ${formatNumber(managerCost)}

@@ -222,7 +222,7 @@ function App() {
 
                 <motion.button
                   onClick={() => setIsResetOpen(true)}
-                  className="px-3 py-2 rounded-lg bg-rose-900/20 text-xs text-rose-300 hover:bg-rose-900/40 transition-colors border border-rose-800/30 flex items-center gap-1"
+                  className="hidden lg:flex px-3 py-2 rounded-lg bg-rose-900/20 text-xs text-rose-300 hover:bg-rose-900/40 transition-colors border border-rose-800/30 items-center gap-1"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   title="Start a completely new game"
@@ -232,7 +232,7 @@ function App() {
 
                 <motion.button
                   onClick={() => setIsPrestigeOpen(true)}
-                  className="px-4 py-2 rounded-lg bg-slate-800 text-sm text-slate-300 hover:bg-slate-700 transition-colors"
+                  className="hidden lg:block px-4 py-2 rounded-lg bg-slate-800 text-sm text-slate-300 hover:bg-slate-700 transition-colors"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
@@ -244,7 +244,7 @@ function App() {
         </header>
 
         {/* Main Dashboard - 3 Columns on Desktop */}
-        <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-6">
+        <main className="flex-1 max-w-7xl mx-auto w-full px-4 pt-4 pb-32 lg:py-6">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
             {/* LEFT COLUMN - The Candidate */}
@@ -272,7 +272,7 @@ function App() {
             {/* CENTER COLUMN - Strategy (Activities/Policies) */}
             <div className="lg:col-span-6 space-y-4">
               {/* Tab Navigation */}
-              <div className="flex gap-1 p-1 bg-slate-800/50 rounded-xl">
+              <div className="hidden lg:flex gap-1 p-1 bg-slate-800/50 rounded-xl">
                 {tabs.map((tab, index) => (
                   <button
                     key={tab.id}
@@ -299,19 +299,19 @@ function App() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
                   >
-                    {/* Buy Mode Toggle */}
-                    <div className="flex justify-end mb-4">
+                    {/* Buy Mode Toggle - Desktop only (mobile has floating version) */}
+                    <div className="hidden lg:flex justify-end mb-4">
                       <BuyModeToggle />
                     </div>
 
-                    <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="grid gap-3 lg:gap-4 sm:grid-cols-2">
                       {ACTIVITIES.map((activity, index) => (
                         <motion.div
                           key={activity.id}
                           id={index === 0 ? 'first-activity' : undefined}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.03 }}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: index * 0.02 }}
                         >
                           <ActivityCard activity={activity} />
                         </motion.div>
@@ -461,6 +461,11 @@ function App() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Floating Buy Mode Toggle - Mobile only */}
+        <div className="lg:hidden fixed bottom-16 right-4 z-30">
+          <BuyModeToggle />
         </div>
 
         {/* Modals */}
