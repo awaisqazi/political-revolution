@@ -177,6 +177,15 @@ export const STAGES: GameStage[] = [
         backgroundStyle: 'bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950/30',
         accentColor: 'rose',
         accentGradient: 'from-rose-600 to-amber-500',
+        opponent: {
+            name: 'The Global Elite',
+            title: 'The Final Boss of Status Quo',
+            imagePrompt: 'A shadowy figure in a high-tech boardroom, digital displays of world markets behind them, cold and untouchable',
+            description: 'They don\'t care who has the title. They own the building. Defeating them is the only way to true change.',
+            health: 300,
+            baseDamage: 22,
+            attacks: ['Market Crash', 'Media Blackout', 'Sanction Strike', 'Structural Adjustment'],
+        },
     },
 ];
 

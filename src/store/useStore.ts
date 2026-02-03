@@ -65,7 +65,7 @@ export interface GameState {
 
     // Phase 7: Happiness & Stages
     happiness: number; // 0-100, starts at 50
-    currentStageIndex: number; // 0-2 (city/state/national)
+    currentStageIndex: number; // 0-6 (activist to president)
     lastPurchasedPolicy: Policy | null; // For triggering modal
     utopiaAchieved: boolean; // Win condition reached
 
@@ -527,8 +527,8 @@ export const useStore = create<GameState>()(
                     const popularityBonus = policy.popularityBonus || 0;
                     const newPopularity = Math.max(0, Math.min(2.0, state.popularity + popularityBonus));
 
-                    // Check for Utopia condition: max happiness + all President policies unlocked
-                    const isUtopia = state.currentStageIndex === 2 &&
+                    // Check for Utopia condition: max happiness + all President policies unlocked (Stage index 6)
+                    const isUtopia = state.currentStageIndex === 6 &&
                         newHappiness >= 100 &&
                         hasAllPresidentPolicies(newUnlockedPolicies);
 

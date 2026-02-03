@@ -41,6 +41,7 @@ export interface DebateState {
     isComplete: boolean;
     didPlayerWin: boolean;
     isShaking: boolean; // For damage shake animation
+    isReady: boolean; // For battle initialization delay
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -155,31 +156,64 @@ export function useDebate(opponent: Opponent | null) {
 
     const allMoves = moves.length > 0 ? moves : [defaultMove];
 
+    // ═══════════════════════════════════════════════════════════════
+    // STATE
+    // ═══════════════════════════════════════════════════════════════
+
     const [state, setState] = useState<DebateState>(() => {
         const playerHp = calculatePlayerHp(happiness);
+        // Force a minimum health of 100 to prevent instant-win on mount/glitch
+        const safeHealth = (opponent?.health && opponent.health > 0) ? opponent.health : 100;
+
         return {
             playerHp,
             maxPlayerHp: playerHp,
-            enemyHp: opponent?.health ?? 100,
-            maxEnemyHp: opponent?.health ?? 100,
+            enemyHp: safeHealth,
+            maxEnemyHp: safeHealth,
             turn: 'player',
             cooldowns: {},
             battleLog: [],
             isComplete: false,
             didPlayerWin: false,
             isShaking: false,
+            isReady: false, // NEW: Prevent interaction/checks until battle is fully set up
         };
     });
+
+    // Clear battle state when opponent becomes null (prevent background activity/wins)
+    useEffect(() => {
+        if (!opponent) {
+            setState(prev => ({
+                ...prev,
+                isComplete: false,
+                didPlayerWin: false,
+                isReady: false
+            }));
+        }
+    }, [opponent]);
+
+    // Handle initialization sequence
+    useEffect(() => {
+        if (!opponent) return;
+
+        const timer = setTimeout(() => {
+            setState(prev => ({ ...prev, isReady: true }));
+        }, 500); // 500ms safety window
+
+        return () => clearTimeout(timer);
+    }, [opponent]);
 
     // Reset battle when opponent changes or debate starts
     const resetBattle = useCallback(() => {
         if (!opponent) return;
         const playerHp = calculatePlayerHp(happiness);
+        const safeHealth = (opponent?.health && opponent.health > 0) ? opponent.health : 100;
+
         setState({
             playerHp,
             maxPlayerHp: playerHp,
-            enemyHp: opponent.health,
-            maxEnemyHp: opponent.health,
+            enemyHp: safeHealth,
+            maxEnemyHp: safeHealth,
             turn: 'player',
             cooldowns: {},
             battleLog: [{
@@ -190,12 +224,13 @@ export function useDebate(opponent: Opponent | null) {
             isComplete: false,
             didPlayerWin: false,
             isShaking: false,
+            isReady: false, // Reset to false and let the useEffect handle the 500ms delay
         });
     }, [opponent, happiness]);
 
     // Use a move (player attack)
     const useMove = useCallback((moveId: string) => {
-        if (!opponent || state.isComplete || state.turn !== 'player') return;
+        if (!opponent || state.isComplete || state.turn !== 'player' || !state.isReady) return;
 
         const move = allMoves.find(m => m.id === moveId);
         if (!move) return;
@@ -204,6 +239,9 @@ export function useDebate(opponent: Opponent | null) {
         if ((state.cooldowns[moveId] ?? 0) > 0) return;
 
         setState(prev => {
+            // Triple check ready state inside functional update
+            if (!prev.isReady || prev.isComplete) return prev;
+
             const newEnemyHp = Math.max(0, prev.enemyHp - move.damage);
 
             const logEntry: BattleLogEntry = {

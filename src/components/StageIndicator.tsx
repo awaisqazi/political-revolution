@@ -9,6 +9,7 @@ export function StageIndicator() {
     const currentStageIndex = useStore(state => state.currentStageIndex);
     const lifetimeEarnings = useStore(state => state.lifetimeEarnings);
     const happiness = useStore(state => state.happiness);
+    const activeDebate = useStore(state => state.activeDebate);
     const startDebate = useStore(state => state.startDebate);
 
     const currentStage = STAGES[currentStageIndex];
@@ -140,10 +141,11 @@ export function StageIndicator() {
                     {canPromote && (
                         <motion.button
                             id="win-election-button"
+                            disabled={activeDebate}
                             onClick={() => { startDebate(); play('buy'); }}
-                            className="w-full py-2 mt-2 rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 text-white font-semibold text-sm hover:from-amber-500 hover:to-orange-500 transition-all shadow-lg shadow-amber-900/30"
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
+                            className={`w-full py-2 mt-2 rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 text-white font-semibold text-sm hover:from-amber-500 hover:to-orange-500 transition-all shadow-lg shadow-amber-900/30 ${activeDebate ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            whileHover={activeDebate ? {} : { scale: 1.02 }}
+                            whileTap={activeDebate ? {} : { scale: 0.98 }}
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                         >
