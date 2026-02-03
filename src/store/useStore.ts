@@ -226,6 +226,25 @@ const getPolicyMultiplier = (state: GameState, activityId: string): number => {
 };
 
 // ================================================
+// Exported Helpers for Click Value Calculation
+// (Used by both store actions and UI components)
+// ================================================
+
+/**
+ * Centralized click value calculation.
+ * This is the single source of truth for the money earned per click.
+ * Used by both the canvass action and CanvassButton for display.
+ */
+export function getClickValue(state: Pick<GameState,
+    'momentum' | 'volunteers' | 'popularity' | 'happiness' |
+    'unlockedPolicies' | 'unlockedStructures' | 'unlockedSkills'
+>): number {
+    const skillEffects = calculateSkillEffects(state.unlockedSkills);
+    const multipliers = calculateMultipliers(state as GameState);
+    return 1 * multipliers * skillEffects.clickValueMult;
+}
+
+// ================================================
 // Zustand Store
 // ================================================
 
@@ -279,41 +298,42 @@ export const useStore = create<GameState>()(
 
             // Actions implementation start here...
             canvass: () => {
+                // Fully functional state update to prevent race conditions
+                set(state => {
+                    // Get skill effects for click bonuses (using fresh state)
+                    const skillEffects = calculateSkillEffects(state.unlockedSkills);
 
-                const state = get();
-                // Get skill effects for click bonuses
-                const skillEffects = calculateSkillEffects(state.unlockedSkills);
+                    // Base click value using centralized helper
+                    const clickValue = getClickValue(state);
 
-                // Base click value (e.g., $1) scaled by current multipliers AND skill bonus
-                const multipliers = calculateMultipliers(state);
-                const clickValue = 1 * multipliers * skillEffects.clickValueMult;
+                    // Calculate new values from fresh state
+                    const newLifetimeEarnings = state.lifetimeEarnings + clickValue;
+                    const newHighest = Math.max(state.highestLifetimeEarnings, newLifetimeEarnings);
+                    const newRank = getRankForEarnings(newHighest);
 
-                const newLifetimeEarnings = state.lifetimeEarnings + clickValue;
-                const newHighest = Math.max(state.highestLifetimeEarnings, newLifetimeEarnings);
-                const newRank = getRankForEarnings(newHighest);
+                    // Calculate momentum with skill bonus
+                    const momentumGain = MOMENTUM_CLICK_INCREMENT + skillEffects.clickMomentumBonus;
 
-                // Calculate momentum with skill bonus
-                const momentumGain = MOMENTUM_CLICK_INCREMENT + skillEffects.clickMomentumBonus;
+                    // Gain XP from canvassing
+                    const xpGain = XP_REWARDS.CANVASS_BASE;
+                    const newXp = state.xp + xpGain;
+                    const levelInfo = calculateLevelFromXp(newXp);
+                    const levelsGained = levelInfo.level - state.level;
 
-                // Gain XP from canvassing
-                const xpGain = XP_REWARDS.CANVASS_BASE;
-                const newXp = state.xp + xpGain;
-                const levelInfo = calculateLevelFromXp(newXp);
-                const didLevelUp = levelInfo.level > state.level;
-
-                set(state => ({
-                    momentum: Math.min(100, state.momentum + momentumGain),
-                    totalClicks: state.totalClicks + 1,
-                    funds: state.funds + clickValue,
-                    lifetimeEarnings: newLifetimeEarnings,
-                    highestLifetimeEarnings: newHighest,
-                    currentRankId: newRank.id,
-                    // XP and leveling
-                    xp: newXp,
-                    level: levelInfo.level,
-                    skillPoints: didLevelUp ? state.skillPoints + (levelInfo.level - state.level) : state.skillPoints,
-                    pendingLevelUp: didLevelUp ? true : state.pendingLevelUp,
-                }));
+                    return {
+                        momentum: Math.min(100, state.momentum + momentumGain),
+                        totalClicks: state.totalClicks + 1,
+                        funds: state.funds + clickValue,
+                        lifetimeEarnings: newLifetimeEarnings,
+                        highestLifetimeEarnings: newHighest,
+                        currentRankId: newRank.id,
+                        // XP and leveling - uses fresh state.level
+                        xp: newXp,
+                        level: levelInfo.level,
+                        skillPoints: state.skillPoints + levelsGained,
+                        pendingLevelUp: levelsGained > 0 ? true : state.pendingLevelUp,
+                    };
+                });
             },
 
             // Manually run an activity (Clicking the card)
@@ -337,38 +357,45 @@ export const useStore = create<GameState>()(
 
             // Buy an activity
             buyActivity: (id: string) => {
-                const state = get();
                 const activity = ACTIVITIES.find(a => a.id === id);
                 if (!activity) return;
 
-                const activityState = state.activities[id];
-                // Apply skill cost reduction
-                const skillEffects = calculateSkillEffects(state.unlockedSkills);
-                const baseCost = getActivityCost(activity.baseCost, activityState.owned);
-                const cost = Math.floor(baseCost * skillEffects.activityCostMult);
+                // Fully functional state update to prevent race conditions
+                set(state => {
+                    const activityState = state.activities[id];
+                    // Apply skill cost reduction (using fresh state)
+                    const skillEffects = calculateSkillEffects(state.unlockedSkills);
+                    const baseCost = getActivityCost(activity.baseCost, activityState.owned);
+                    const cost = Math.floor(baseCost * skillEffects.activityCostMult);
 
-                if (state.funds >= cost) {
+                    // Check if we can afford it
+                    if (state.funds < cost) {
+                        return state; // No change
+                    }
+
                     const newQuantity = activityState.owned + 1;
 
                     // Check if this purchase hits a milestone threshold
-                    // Apply recruitment chance multiplier from skills
-                    const hitMilestone = MILESTONE_THRESHOLDS.includes(newQuantity);
-                    const shouldTriggerMiniGame = hitMilestone &&
-                        (skillEffects.recruitmentChanceMult >= 1 ? true : Math.random() < skillEffects.recruitmentChanceMult);
+                    const isMilestone = MILESTONE_THRESHOLDS.includes(newQuantity);
 
-                    // Extra recruitment drives from skill bonus
-                    const extraRecruitmentChance = skillEffects.recruitmentChanceMult > 1
-                        ? (skillEffects.recruitmentChanceMult - 1)
-                        : 0;
-                    const bonusRecruitment = !hitMilestone && extraRecruitmentChance > 0 && Math.random() < extraRecruitmentChance * 0.1;
+                    // FIXED: Proper recruitment logic for Mass Mobilization skill
+                    // If milestone: Always trigger recruitment drive
+                    // If NOT milestone: Chance = (SkillMult - 1) * 0.1
+                    // e.g., 1.25x skill = 25% * 0.1 = 2.5% random chance outside milestones
+                    const extraChance = skillEffects.recruitmentChanceMult - 1;
+                    const shouldTriggerMiniGame = isMilestone || (extraChance > 0 && Math.random() < extraChance * 0.1);
 
-                    // Gain XP from purchase
-                    const xpGain = Math.floor(cost * XP_REWARDS.ACTIVITY_PURCHASE_MULT);
+                    // Gain XP from purchase + milestone bonus if applicable
+                    let xpGain = Math.floor(cost * XP_REWARDS.ACTIVITY_PURCHASE_MULT);
+                    if (isMilestone) {
+                        xpGain += XP_REWARDS.MILESTONE_BONUS;
+                    }
                     const newXp = state.xp + xpGain;
                     const levelInfo = calculateLevelFromXp(newXp);
-                    const didLevelUp = levelInfo.level > state.level;
+                    const levelsGained = levelInfo.level - state.level;
 
-                    set(state => ({
+                    return {
+                        ...state,
                         funds: state.funds - cost,
                         activities: {
                             ...state.activities,
@@ -378,18 +405,18 @@ export const useStore = create<GameState>()(
                             },
                         },
                         // Trigger mini-game if milestone hit or bonus recruitment
-                        ...((shouldTriggerMiniGame || bonusRecruitment) ? {
+                        ...(shouldTriggerMiniGame ? {
                             activeMiniGame: 'petition-blitz' as const,
                             miniGameScore: 0,
                             miniGameActivityId: id,
                         } : {}),
-                        // XP and leveling
+                        // XP and leveling - uses fresh state.level
                         xp: newXp,
                         level: levelInfo.level,
-                        skillPoints: didLevelUp ? state.skillPoints + (levelInfo.level - state.level) : state.skillPoints,
-                        pendingLevelUp: didLevelUp ? true : state.pendingLevelUp,
-                    }));
-                }
+                        skillPoints: state.skillPoints + levelsGained,
+                        pendingLevelUp: levelsGained > 0 ? true : state.pendingLevelUp,
+                    };
+                });
             },
 
             // Hire a manager for an activity
@@ -423,21 +450,23 @@ export const useStore = create<GameState>()(
 
             // Buy a policy upgrade - now affects happiness and triggers modal
             buyPolicy: (id: string) => {
-                const state = get();
                 const policy = POLICIES.find(p => p.id === id);
                 if (!policy) return;
 
-                // Check if already unlocked
-                if (state.unlockedPolicies.includes(id)) return;
+                // Fully functional state update to prevent race conditions
+                set(state => {
+                    // Check if already unlocked
+                    if (state.unlockedPolicies.includes(id)) return state;
 
-                // Check stage requirement
-                const stageOrder: StageId[] = ['activist', 'organizer', 'city-council', 'state-rep', 'congressman', 'senator', 'president'];
-                const policyStageIndex = stageOrder.indexOf(policy.stage);
-                if (policyStageIndex > state.currentStageIndex) return; // Can't buy policies from future stages
+                    // Check stage requirement
+                    const stageOrder: StageId[] = ['activist', 'organizer', 'city-council', 'state-rep', 'congressman', 'senator', 'president'];
+                    const policyStageIndex = stageOrder.indexOf(policy.stage);
+                    if (policyStageIndex > state.currentStageIndex) return state;
 
-                // Check if we have enough funds
-                if (state.funds >= policy.cost) {
-                    // Apply happiness gain skill multiplier
+                    // Check if we have enough funds
+                    if (state.funds < policy.cost) return state;
+
+                    // Apply happiness gain skill multiplier (using fresh state)
                     const skillEffects = calculateSkillEffects(state.unlockedSkills);
                     const happinessChange = policy.happinessChange > 0
                         ? Math.ceil(policy.happinessChange * skillEffects.happinessGainMult)
@@ -455,22 +484,23 @@ export const useStore = create<GameState>()(
                     const xpGain = Math.floor(policy.cost * XP_REWARDS.POLICY_PURCHASE_MULT);
                     const newXp = state.xp + xpGain;
                     const levelInfo = calculateLevelFromXp(newXp);
-                    const didLevelUp = levelInfo.level > state.level;
+                    const levelsGained = levelInfo.level - state.level;
 
-                    set(state => ({
+                    return {
+                        ...state,
                         funds: state.funds - policy.cost,
                         unlockedPolicies: newUnlockedPolicies,
                         happiness: newHappiness,
                         // Set policy for modal if it has impact content
                         lastPurchasedPolicy: policy.impactDescription ? policy : null,
                         utopiaAchieved: isUtopia,
-                        // XP and leveling
+                        // XP and leveling - uses fresh state.level
                         xp: newXp,
                         level: levelInfo.level,
-                        skillPoints: didLevelUp ? state.skillPoints + (levelInfo.level - state.level) : state.skillPoints,
-                        pendingLevelUp: didLevelUp ? true : state.pendingLevelUp,
-                    }));
-                }
+                        skillPoints: state.skillPoints + levelsGained,
+                        pendingLevelUp: levelsGained > 0 ? true : state.pendingLevelUp,
+                    };
+                });
             },
 
             // Clear the policy modal after viewing
@@ -726,45 +756,48 @@ export const useStore = create<GameState>()(
             },
 
             prestige: () => {
-                const state = get();
-                // Calculate bonus volunteers from prestige formula
-                const bonusVolunteers = Math.floor(Math.sqrt(state.lifetimeEarnings / VOLUNTEER_DIVISOR));
+                // Fully functional state update to prevent race conditions
+                set(state => {
+                    // Calculate bonus volunteers from prestige formula (using fresh state)
+                    const bonusVolunteers = Math.floor(Math.sqrt(state.lifetimeEarnings / VOLUNTEER_DIVISOR));
 
-                // Grant prestige XP bonus
-                const xpGain = XP_REWARDS.PRESTIGE_BONUS;
-                const newXp = state.xp + xpGain;
-                const levelInfo = calculateLevelFromXp(newXp);
-                const didLevelUp = levelInfo.level > state.level;
+                    // Grant prestige XP bonus
+                    const xpGain = XP_REWARDS.PRESTIGE_BONUS;
+                    const newXp = state.xp + xpGain;
+                    const levelInfo = calculateLevelFromXp(newXp);
+                    const levelsGained = levelInfo.level - state.level;
 
-                // Full reset - start a new campaign from City Council
-                // KEEP: XP, Level, Skills (permanent progression)
-                set({
-                    funds: STARTING_FUNDS,
-                    lifetimeEarnings: 0,
-                    momentum: 0,
-                    totalClicks: 0, // Reset doors knocked
-                    highestLifetimeEarnings: 0, // Reset total raised
-                    currentRankId: 'neighbor', // Reset rank
-                    currentStageIndex: 0, // Reset to City Council - start fresh!
-                    utopiaAchieved: false, // Reset win condition
-                    happiness: 50, // Reset happiness to status quo
-                    activities: initializeActivities(),
-                    unlockedPolicies: [], // Reset policies on prestige
-                    unlockedMilestones: [], // Reset milestones on prestige
-                    unlockedStructures: [], // Reset power structures on prestige
-                    unlockedMemories: state.unlockedMemories, // KEEP memories through prestige (they are permanent achievements)
-                    pendingMemoryUnlocks: [], // Clear pending on prestige just in case
-                    pendingNotifications: [],
-                    volunteers: state.volunteers + bonusVolunteers, // ADD to existing volunteers
-                    activeEvent: null,
-                    lastSaveTime: Date.now(),
-                    runId: Date.now(), // Force UI refresh
-                    // Phase 13: KEEP skills through prestige + grant bonus XP
-                    xp: newXp,
-                    level: levelInfo.level,
-                    skillPoints: didLevelUp ? state.skillPoints + (levelInfo.level - state.level) : state.skillPoints,
-                    unlockedSkills: state.unlockedSkills, // KEEP skills - they are permanent!
-                    pendingLevelUp: didLevelUp ? true : state.pendingLevelUp,
+                    // Full reset - start a new campaign from City Council
+                    // KEEP: XP, Level, Skills (permanent progression)
+                    return {
+                        ...state,
+                        funds: STARTING_FUNDS,
+                        lifetimeEarnings: 0,
+                        momentum: 0,
+                        totalClicks: 0, // Reset doors knocked
+                        highestLifetimeEarnings: 0, // Reset total raised
+                        currentRankId: 'neighbor', // Reset rank
+                        currentStageIndex: 0, // Reset to City Council - start fresh!
+                        utopiaAchieved: false, // Reset win condition
+                        happiness: 50, // Reset happiness to status quo
+                        activities: initializeActivities(),
+                        unlockedPolicies: [], // Reset policies on prestige
+                        unlockedMilestones: [], // Reset milestones on prestige
+                        unlockedStructures: [], // Reset power structures on prestige
+                        unlockedMemories: state.unlockedMemories, // KEEP memories through prestige (they are permanent achievements)
+                        pendingMemoryUnlocks: [], // Clear pending on prestige just in case
+                        pendingNotifications: [],
+                        volunteers: state.volunteers + bonusVolunteers, // ADD to existing volunteers
+                        activeEvent: null,
+                        lastSaveTime: Date.now(),
+                        runId: Date.now(), // Force UI refresh
+                        // Phase 13: KEEP skills through prestige + grant bonus XP - uses fresh state.level
+                        xp: newXp,
+                        level: levelInfo.level,
+                        skillPoints: state.skillPoints + levelsGained,
+                        unlockedSkills: state.unlockedSkills, // KEEP skills - they are permanent!
+                        pendingLevelUp: levelsGained > 0 ? true : state.pendingLevelUp,
+                    };
                 });
             },
 
@@ -915,40 +948,43 @@ export const useStore = create<GameState>()(
             },
 
             winDebate: () => {
-                const state = get();
-                const nextIndex = state.currentStageIndex + 1;
+                // Fully functional state update to prevent race conditions
+                set(state => {
+                    const nextIndex = state.currentStageIndex + 1;
 
-                // Gain XP for winning debate
-                const xpGain = XP_REWARDS.DEBATE_WIN;
-                const newXp = state.xp + xpGain;
-                const levelInfo = calculateLevelFromXp(newXp);
-                const didLevelUp = levelInfo.level > state.level;
+                    // Gain XP for winning debate
+                    const xpGain = XP_REWARDS.DEBATE_WIN;
+                    const newXp = state.xp + xpGain;
+                    const levelInfo = calculateLevelFromXp(newXp);
+                    const levelsGained = levelInfo.level - state.level;
 
-                if (nextIndex >= STAGES.length) {
-                    // Final stage - close debate
-                    set({
+                    if (nextIndex >= STAGES.length) {
+                        // Final stage - close debate
+                        return {
+                            ...state,
+                            activeDebate: false,
+                            currentOpponent: null,
+                            // XP and leveling - uses fresh state.level
+                            xp: newXp,
+                            level: levelInfo.level,
+                            skillPoints: state.skillPoints + levelsGained,
+                            pendingLevelUp: levelsGained > 0 ? true : state.pendingLevelUp,
+                        };
+                    }
+
+                    // Actually promote the stage
+                    return {
+                        ...state,
+                        currentStageIndex: nextIndex,
                         activeDebate: false,
                         currentOpponent: null,
-                        // XP and leveling
+                        lastSaveTime: Date.now(),
+                        // XP and leveling - uses fresh state.level
                         xp: newXp,
                         level: levelInfo.level,
-                        skillPoints: didLevelUp ? state.skillPoints + (levelInfo.level - state.level) : state.skillPoints,
-                        pendingLevelUp: didLevelUp ? true : state.pendingLevelUp,
-                    });
-                    return;
-                }
-
-                // Actually promote the stage
-                set({
-                    currentStageIndex: nextIndex,
-                    activeDebate: false,
-                    currentOpponent: null,
-                    lastSaveTime: Date.now(),
-                    // XP and leveling
-                    xp: newXp,
-                    level: levelInfo.level,
-                    skillPoints: didLevelUp ? state.skillPoints + (levelInfo.level - state.level) : state.skillPoints,
-                    pendingLevelUp: didLevelUp ? true : state.pendingLevelUp,
+                        skillPoints: state.skillPoints + levelsGained,
+                        pendingLevelUp: levelsGained > 0 ? true : state.pendingLevelUp,
+                    };
                 });
             },
 
@@ -963,16 +999,18 @@ export const useStore = create<GameState>()(
 
             // Phase 13: Skill Tree actions
             gainXp: (amount: number) => {
-                const state = get();
-                const newXp = state.xp + amount;
-                const levelInfo = calculateLevelFromXp(newXp);
-                const didLevelUp = levelInfo.level > state.level;
+                // Fully functional state update to prevent race conditions
+                set(state => {
+                    const newXp = state.xp + amount;
+                    const levelInfo = calculateLevelFromXp(newXp);
+                    const levelsGained = levelInfo.level - state.level;
 
-                set({
-                    xp: newXp,
-                    level: levelInfo.level,
-                    skillPoints: didLevelUp ? state.skillPoints + (levelInfo.level - state.level) : state.skillPoints,
-                    pendingLevelUp: didLevelUp ? true : state.pendingLevelUp,
+                    return {
+                        xp: newXp,
+                        level: levelInfo.level,
+                        skillPoints: state.skillPoints + levelsGained,
+                        pendingLevelUp: levelsGained > 0 ? true : state.pendingLevelUp,
+                    };
                 });
             },
 
