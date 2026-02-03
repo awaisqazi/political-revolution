@@ -8,6 +8,7 @@ export interface ActivityConfig {
     baseTime: number; // in milliseconds
     baseRevenue: number;
     emoji: string;
+    image?: string; // Phase 17: Visual art
 }
 
 // 9 Activities with exponential scaling
@@ -20,6 +21,7 @@ export const ACTIVITIES: ActivityConfig[] = [
         baseTime: 1000,
         baseRevenue: 1,
         emoji: '📄',
+        image: `${import.meta.env.BASE_URL}images/icons/leafleting.png`,
     },
     {
         id: 'phone-banking',
@@ -29,6 +31,7 @@ export const ACTIVITIES: ActivityConfig[] = [
         baseTime: 3000,
         baseRevenue: 3,
         emoji: '📞',
+        image: `${import.meta.env.BASE_URL}images/icons/phone-bank.png`,
     },
     {
         id: 'tabling',
@@ -38,6 +41,7 @@ export const ACTIVITIES: ActivityConfig[] = [
         baseTime: 6000,
         baseRevenue: 12,
         emoji: '🎪',
+        image: `${import.meta.env.BASE_URL}images/icons/petition.png`,
     },
     {
         id: 'town-hall',
@@ -47,6 +51,7 @@ export const ACTIVITIES: ActivityConfig[] = [
         baseTime: 12000,
         baseRevenue: 48,
         emoji: '🏛️',
+        image: `${import.meta.env.BASE_URL}images/icons/solidarity-block.png`,
     },
     {
         id: 'union-rally',
@@ -56,6 +61,7 @@ export const ACTIVITIES: ActivityConfig[] = [
         baseTime: 24000,
         baseRevenue: 192,
         emoji: '✊',
+        image: `${import.meta.env.BASE_URL}images/icons/union-hall.png`,
     },
     {
         id: 'tiktok',
@@ -65,6 +71,7 @@ export const ACTIVITIES: ActivityConfig[] = [
         baseTime: 48000,
         baseRevenue: 768,
         emoji: '📱',
+        image: `${import.meta.env.BASE_URL}images/icons/media-blitz.png`,
     },
     {
         id: 'bus-tour',
@@ -74,6 +81,7 @@ export const ACTIVITIES: ActivityConfig[] = [
         baseTime: 96000,
         baseRevenue: 3072,
         emoji: '🚌',
+        image: `${import.meta.env.BASE_URL}images/icons/campaign-bus.png`,
     },
     {
         id: 'debate',
@@ -83,6 +91,7 @@ export const ACTIVITIES: ActivityConfig[] = [
         baseTime: 192000,
         baseRevenue: 12288,
         emoji: '📺',
+        image: `${import.meta.env.BASE_URL}images/icons/general-strike.png`,
     },
     {
         id: 'stadium',
@@ -92,6 +101,7 @@ export const ACTIVITIES: ActivityConfig[] = [
         baseTime: 384000,
         baseRevenue: 49152,
         emoji: '🏟️',
+        image: `${import.meta.env.BASE_URL}images/icons/stadium-rally.png`,
     },
 ];
 

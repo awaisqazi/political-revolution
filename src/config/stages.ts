@@ -12,6 +12,7 @@ export interface Opponent {
     description: string;
     health: number;
     baseDamage: number;
+    image?: string; // Phase 17: Visual art
     attacks: string[]; // Flavor text for their establishment moves
 }
 
@@ -52,6 +53,7 @@ export const STAGES: GameStage[] = [
             description: 'A career politician backed by real estate developers who has never met a tenant he couldn\'t evict.',
             health: 50,
             baseDamage: 8,
+            image: `${import.meta.env.BASE_URL}images/opponents/councilman-crumb.png`,
             attacks: ['Backroom Deal', 'Donor Call', 'Dismissive Wave', 'Crocodile Tears'],
         },
     },
@@ -118,6 +120,7 @@ export const STAGES: GameStage[] = [
             description: 'He\'s been "working across the aisle" for 30 years without passing a single progressive bill.',
             health: 125,
             baseDamage: 14,
+            image: `${import.meta.env.BASE_URL}images/opponents/senator-stalemate.png`,
             attacks: ['Filibuster', 'Committee Burial', 'Procedural Block', 'Bipartisan Betrayal'],
         },
     },
@@ -162,6 +165,7 @@ export const STAGES: GameStage[] = [
             description: 'Net worth: $50 billion. Tax paid last year: $750. Democracy is just a business expense to him.',
             health: 200,
             baseDamage: 18,
+            image: `${import.meta.env.BASE_URL}images/opponents/president-titan.png`,
             attacks: ['Super PAC Attack', 'Media Monopoly', 'Tax Haven Shield', 'Hostile Takeover'],
         },
     },

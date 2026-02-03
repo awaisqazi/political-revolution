@@ -280,12 +280,26 @@ export function DebateModal() {
 
                                     {/* Enemy Side (RIGHT) */}
                                     <div className="relative">
-                                        <div className="bg-slate-800/50 rounded-lg p-3 border border-rose-500/20">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <div className="text-2xl">🎭</div>
-                                                <div>
-                                                    <div className="text-sm font-bold text-rose-400">{currentOpponent.name}</div>
-                                                    <div className="text-[10px] text-slate-400">{currentOpponent.title}</div>
+                                        <div className="bg-slate-800/50 rounded-lg p-3 border border-rose-500/20 h-full flex flex-col">
+                                            <div className="flex items-center gap-3 mb-2 flex-1">
+                                                {currentOpponent.image ? (
+                                                    <motion.div
+                                                        className="w-20 h-20 sm:w-24 sm:h-24 flex-shrink-0"
+                                                        animate={{ y: [0, -5, 0] }}
+                                                        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                                                    >
+                                                        <img
+                                                            src={currentOpponent.image}
+                                                            alt={currentOpponent.name}
+                                                            className="w-full h-full object-cover rounded-lg border-2 border-rose-500/30 shadow-xl shadow-black/40"
+                                                        />
+                                                    </motion.div>
+                                                ) : (
+                                                    <div className="text-4xl w-20 h-20 flex items-center justify-center bg-slate-900/50 rounded-lg border border-rose-500/20">🎭</div>
+                                                )}
+                                                <div className="min-w-0">
+                                                    <div className="text-sm font-bold text-rose-400 truncate">{currentOpponent.name}</div>
+                                                    <div className="text-[10px] text-slate-400 line-clamp-2 leading-tight">{currentOpponent.title}</div>
                                                 </div>
                                             </div>
 

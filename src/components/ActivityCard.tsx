@@ -94,8 +94,18 @@ export function ActivityCard({ activity }: ActivityCardProps) {
             onClick={() => canManuallyRun && runActivity(activity.id)}
         >
             {/* Header */}
-            <div className="flex items-start gap-3 mb-3">
-                <div className="text-3xl">{activity.emoji}</div>
+            <div className="flex items-start gap-4 mb-3">
+                {activity.image ? (
+                    <div className="w-16 h-16 flex-shrink-0">
+                        <img
+                            src={activity.image}
+                            alt={activity.name}
+                            className="w-full h-full object-cover rounded-lg border border-white/10 shadow-lg shadow-black/30"
+                        />
+                    </div>
+                ) : (
+                    <div className="text-4xl w-16 h-16 flex items-center justify-center bg-slate-800/50 rounded-lg">{activity.emoji}</div>
+                )}
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-semibold text-white truncate">
