@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAudio } from '../hooks/useAudio';
 import { useStore } from '../store/useStore';
+import { ResetGameModal } from './ResetGameModal';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -148,11 +149,16 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         reader.readAsText(file);
     };
 
-    // Hard reset - clear everything and reload
-    const handleHardReset = () => {
+    // Hard reset - "Nuclear Option" for mobile stability
+    const performHardReset = () => {
+        // 1. Manually clear the specific save key used by Zustand
         localStorage.removeItem('political-revolution-save');
+
+        // 2. Clear other related storage items
         localStorage.removeItem('political-revolution-audio-muted');
         localStorage.removeItem('political-revolution-tutorial');
+
+        // 3. Force a hard reload from the server to clear in-memory state
         window.location.reload();
     };
 
@@ -374,45 +380,15 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                         </div>
                                     </div>
                                 </div>
-                                {!showResetConfirm ? (
-                                    <motion.button
-                                        onClick={() => setShowResetConfirm(true)}
-                                        className="px-4 py-2 rounded-lg font-medium text-sm bg-rose-900/50 text-rose-300 hover:bg-rose-800/50 border border-rose-700/50 transition-all"
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
-                                    >
-                                        Resign & Wipe
-                                    </motion.button>
-                                ) : (
-                                    <div className="flex gap-2">
-                                        <motion.button
-                                            onClick={() => setShowResetConfirm(false)}
-                                            className="px-3 py-2 rounded-lg font-medium text-sm bg-slate-700 text-slate-300 hover:bg-slate-600 transition-all"
-                                            whileHover={{ scale: 1.05 }}
-                                            whileTap={{ scale: 0.95 }}
-                                        >
-                                            Cancel
-                                        </motion.button>
-                                        <motion.button
-                                            onClick={handleHardReset}
-                                            className="px-3 py-2 rounded-lg font-medium text-sm bg-rose-600 text-white hover:bg-rose-500 transition-all"
-                                            whileHover={{ scale: 1.05 }}
-                                            whileTap={{ scale: 0.95 }}
-                                        >
-                                            Confirm Reset
-                                        </motion.button>
-                                    </div>
-                                )}
-                            </div>
-                            {showResetConfirm && (
-                                <motion.p
-                                    initial={{ opacity: 0, y: -10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    className="text-xs text-rose-400 mt-3"
+                                <motion.button
+                                    onClick={() => setShowResetConfirm(true)}
+                                    className="px-4 py-2 rounded-lg font-medium text-sm bg-rose-900/50 text-rose-300 hover:bg-rose-800/50 border border-rose-700/50 transition-all"
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
                                 >
-                                    ⚠️ This will delete ALL progress including volunteers. This cannot be undone!
-                                </motion.p>
-                            )}
+                                    Resign & Wipe
+                                </motion.button>
+                            </div>
                         </div>
                     </div>
 
@@ -422,6 +398,11 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     </div>
                 </motion.div>
             </motion.div>
+            <ResetGameModal
+                isOpen={showResetConfirm}
+                onClose={() => setShowResetConfirm(false)}
+                onConfirm={performHardReset}
+            />
         </AnimatePresence>
     );
 }
