@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { POLICIES, type Policy } from '../config/policies';
 import type { Opponent } from '../config/stages';
+import { calculateSkillEffects } from '../config/skills';
 
 // ═══════════════════════════════════════════════════════════════
 // TYPE DEFINITIONS
@@ -50,19 +51,28 @@ const calculatePlayerHp = (happiness: number): number => {
     return Math.max(50, Math.floor(happiness * 1.5));
 };
 
-// Convert a policy to a battle move
-const policyToBattleMove = (policy: Policy, stageIndex: number): BattleMove => {
+// Convert a policy to a battle move (with skill effects applied)
+const policyToBattleMove = (
+    policy: Policy,
+    stageIndex: number,
+    damageMult: number = 1,
+    cooldownReduction: number = 0
+): BattleMove => {
     // Damage scales with cost, but also by stage (earlier stages = lower damage scale)
     const stageDamageMultiplier = 1 + (stageIndex * 0.5);
     const baseDamage = Math.ceil((policy.cost / 1000) * stageDamageMultiplier);
+    // Apply skill damage multiplier
+    const boostedDamage = Math.ceil(baseDamage * damageMult);
     // Clamp damage between 5 and 50 for balance
-    const damage = Math.max(5, Math.min(50, baseDamage));
+    const damage = Math.max(5, Math.min(50, boostedDamage));
 
     // Cooldown based on cost: cheap = 0, expensive = 3
-    const cooldown = policy.cost <= 1000 ? 0
+    const baseCooldown = policy.cost <= 1000 ? 0
         : policy.cost <= 10000 ? 1
             : policy.cost <= 100000 ? 2
                 : 3;
+    // Apply skill cooldown reduction (minimum 0)
+    const cooldown = Math.max(0, baseCooldown - cooldownReduction);
 
     // Determine move type based on policy characteristics
     let type: MoveType = 'Logic';
@@ -94,18 +104,27 @@ export function useDebate(opponent: Opponent | null) {
     const unlockedPolicies = useStore(state => state.unlockedPolicies);
     const happiness = useStore(state => state.happiness);
     const currentStageIndex = useStore(state => state.currentStageIndex);
+    const unlockedSkills = useStore(state => state.unlockedSkills);
 
-    // Generate battle moves from unlocked policies
+    // Get skill effects for debate bonuses
+    const skillEffects = calculateSkillEffects(unlockedSkills);
+
+    // Generate battle moves from unlocked policies (with skill effects applied)
     const moves: BattleMove[] = unlockedPolicies
         .map(id => POLICIES.find(p => p.id === id))
         .filter((p): p is Policy => p !== undefined)
-        .map(policy => policyToBattleMove(policy, currentStageIndex));
+        .map(policy => policyToBattleMove(
+            policy,
+            currentStageIndex,
+            skillEffects.debateDamageMult,
+            skillEffects.debateCooldownReduction
+        ));
 
-    // If no policies unlocked, provide a basic attack
+    // If no policies unlocked, provide a basic attack (with skill damage boost)
     const defaultMove: BattleMove = {
         id: 'basic-argument',
         name: 'Basic Argument',
-        damage: 5,
+        damage: Math.ceil(5 * skillEffects.debateDamageMult),
         maxCooldown: 0,
         type: 'Logic',
         description: 'A simple but honest point',

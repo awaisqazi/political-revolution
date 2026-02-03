@@ -34,6 +34,9 @@ import { ScrapbookModal } from './components/ScrapbookModal';
 import { MemoryNotification } from './components/MemoryNotification';
 import { DebateModal } from './components/DebateModal';
 import { FloatingStats } from './components/FloatingStats';
+import { SkillTreeModal } from './components/SkillTreeModal';
+import { LevelUpNotification } from './components/LevelUpNotification';
+import { XPBar } from './components/XPBar';
 
 type TabType = 'activities' | 'policies' | 'capital' | 'log';
 
@@ -42,6 +45,7 @@ function App() {
   const [isResetOpen, setIsResetOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isScrapbookOpen, setIsScrapbookOpen] = useState(false);
+  const [isSkillTreeOpen, setIsSkillTreeOpen] = useState(false);
   const [welcomeData, setWelcomeData] = useState<{ earnings: number; seconds: number } | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('activities');
   const [showFloatingStats, setShowFloatingStats] = useState(false);
@@ -216,6 +220,17 @@ function App() {
               </div>
 
               <div className="flex gap-2">
+                {/* Skills Button */}
+                <motion.button
+                  onClick={() => setIsSkillTreeOpen(true)}
+                  className="px-3 py-2 rounded-lg bg-amber-900/50 text-amber-400 hover:text-amber-300 hover:bg-amber-800/50 transition-colors border border-amber-700/50"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  title="Skill Tree"
+                >
+                  🌳
+                </motion.button>
+
                 {/* Settings Button */}
                 <motion.button
                   onClick={() => setIsSettingsOpen(true)}
@@ -270,6 +285,9 @@ function App() {
 
             {/* LEFT COLUMN - The Candidate */}
             <div className="lg:col-span-3 space-y-4">
+              {/* XP Bar - Clickable to open Skill Tree */}
+              <XPBar onOpenSkillTree={() => setIsSkillTreeOpen(true)} />
+
               <StatsDisplay />
               <HappinessBar />
               <CanvassButton />
@@ -544,6 +562,15 @@ function App() {
 
         {/* Memory Notification */}
         <MemoryNotification />
+
+        {/* Skill Tree Modal */}
+        <SkillTreeModal
+          isOpen={isSkillTreeOpen}
+          onClose={() => setIsSkillTreeOpen(false)}
+        />
+
+        {/* Level Up Notification */}
+        <LevelUpNotification />
       </div>
     </AudioProvider>
   );

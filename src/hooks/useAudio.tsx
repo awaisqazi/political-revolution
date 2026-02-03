@@ -4,7 +4,7 @@ import { createContext, useContext, useState, useCallback, useEffect, type React
 // Types
 // ================================================
 
-type SoundId = 'canvass' | 'buy' | 'unlock' | 'stageWin' | 'recruit' | 'policy';
+type SoundId = 'canvass' | 'buy' | 'unlock' | 'stageWin' | 'recruit' | 'policy' | 'levelUp' | 'skillUnlock';
 
 interface AudioContextValue {
     muted: boolean;
@@ -100,6 +100,43 @@ function playPolicySound(audioContext: globalThis.AudioContext): void {
     }, 200);
 }
 
+function playLevelUpSound(audioContext: globalThis.AudioContext): void {
+    // Epic level up: Triumphant ascending fanfare
+    // First wave - rising arpeggio
+    [262, 330, 392, 523].forEach((freq, i) => {
+        setTimeout(() => createTone(audioContext, freq, 0.2, 'sine', 0.2), i * 80);
+    });
+
+    // Second wave - power chord burst
+    setTimeout(() => {
+        [523, 659, 784].forEach((freq) => {
+            createTone(audioContext, freq, 0.4, 'sine', 0.15);
+        });
+    }, 400);
+
+    // Final flourish - high sparkle
+    setTimeout(() => {
+        [1047, 1175, 1319].forEach((freq, i) => {
+            setTimeout(() => createTone(audioContext, freq, 0.15, 'sine', 0.1), i * 40);
+        });
+    }, 600);
+}
+
+function playSkillUnlockSound(audioContext: globalThis.AudioContext): void {
+    // Skill unlock: Magical power-up sound
+    // Whoosh up
+    createTone(audioContext, 300, 0.15, 'sine', 0.2);
+    setTimeout(() => createTone(audioContext, 500, 0.15, 'sine', 0.2), 50);
+    setTimeout(() => createTone(audioContext, 700, 0.2, 'sine', 0.25), 100);
+
+    // Sparkle confirmation
+    setTimeout(() => {
+        [800, 1000, 1200].forEach((freq, i) => {
+            setTimeout(() => createTone(audioContext, freq, 0.1, 'sine', 0.12), i * 30);
+        });
+    }, 200);
+}
+
 // ================================================
 // Provider Component
 // ================================================
@@ -165,6 +202,12 @@ export function AudioProvider({ children }: AudioProviderProps) {
                     break;
                 case 'policy':
                     playPolicySound(ctx);
+                    break;
+                case 'levelUp':
+                    playLevelUpSound(ctx);
+                    break;
+                case 'skillUnlock':
+                    playSkillUnlockSound(ctx);
                     break;
             }
         } catch (error) {

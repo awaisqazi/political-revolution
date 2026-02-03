@@ -77,10 +77,13 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             const hasStateWrapper = 'state' in parsed && typeof parsed.state === 'object';
             const stateToValidate = hasStateWrapper ? parsed.state : parsed;
 
-            // Validate that we have expected game state keys
+            // Validate that we have expected game state keys (including skill tree fields)
             const hasGameStateKeys = 'funds' in stateToValidate ||
                 'volunteers' in stateToValidate ||
-                'activities' in stateToValidate;
+                'activities' in stateToValidate ||
+                'xp' in stateToValidate ||
+                'level' in stateToValidate ||
+                'unlockedSkills' in stateToValidate;
 
             if (!hasGameStateKeys) {
                 throw new Error('Save data appears corrupted - missing required game fields');
