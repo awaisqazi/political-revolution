@@ -158,7 +158,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         // 2. Force a hard reload with cache busting
         // Using replace and a timestamp ensures browsers (especially mobile Chrome)
         // don't try to restore a cached/stale version of the page or its memory.
-        const url = new URL(window.location.origin);
+        const url = new URL(window.location.href);
         url.searchParams.set('t', Date.now().toString());
 
         console.log('[Reset] Purged storage, forcing hard reload...');
