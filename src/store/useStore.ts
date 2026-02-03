@@ -24,6 +24,13 @@ import {
     getMomentumMultiplier,
     MILESTONE_THRESHOLDS,
 } from '../config/gameConfig';
+import {
+    calculateLevelFromXp,
+    calculateSkillEffects,
+    canUnlockSkill,
+    getSkillById,
+    XP_REWARDS,
+} from '../config/skills';
 
 // ================================================
 // Type Definitions
@@ -112,6 +119,13 @@ export interface GameState {
     activeDebate: boolean;
     currentOpponent: Opponent | null;
 
+    // Phase 13: RPG Skill Tree System
+    xp: number;
+    level: number;
+    skillPoints: number;
+    unlockedSkills: string[];
+    pendingLevelUp: boolean; // Flag to trigger level up notification
+
     // Actions
     canvass: () => void;
     buyActivity: (id: string) => void;
@@ -157,6 +171,12 @@ export interface GameState {
     startDebate: () => void;
     winDebate: () => void;
     loseDebate: () => void;
+
+    // Phase 13: Skill Tree actions
+    gainXp: (amount: number) => void;
+    unlockSkill: (skillId: string) => boolean;
+    dismissLevelUp: () => void;
+    getSkillEffects: () => ReturnType<typeof calculateSkillEffects>;
 }
 
 // Initialize activities state
@@ -241,6 +261,12 @@ const DEFAULT_STATE: Partial<GameState> = {
     // Phase 11: Debates
     activeDebate: false,
     currentOpponent: null,
+    // Phase 13: Skill Tree
+    xp: 0,
+    level: 1,
+    skillPoints: 0,
+    unlockedSkills: [],
+    pendingLevelUp: false,
 };
 
 export const useStore = create<GameState>()(
@@ -255,21 +281,38 @@ export const useStore = create<GameState>()(
             canvass: () => {
 
                 const state = get();
-                // Base click value (e.g., $1) scaled by current multipliers
+                // Get skill effects for click bonuses
+                const skillEffects = calculateSkillEffects(state.unlockedSkills);
+
+                // Base click value (e.g., $1) scaled by current multipliers AND skill bonus
                 const multipliers = calculateMultipliers(state);
-                const clickValue = 1 * multipliers;
+                const clickValue = 1 * multipliers * skillEffects.clickValueMult;
 
                 const newLifetimeEarnings = state.lifetimeEarnings + clickValue;
                 const newHighest = Math.max(state.highestLifetimeEarnings, newLifetimeEarnings);
                 const newRank = getRankForEarnings(newHighest);
 
+                // Calculate momentum with skill bonus
+                const momentumGain = MOMENTUM_CLICK_INCREMENT + skillEffects.clickMomentumBonus;
+
+                // Gain XP from canvassing
+                const xpGain = XP_REWARDS.CANVASS_BASE;
+                const newXp = state.xp + xpGain;
+                const levelInfo = calculateLevelFromXp(newXp);
+                const didLevelUp = levelInfo.level > state.level;
+
                 set(state => ({
-                    momentum: Math.min(100, state.momentum + MOMENTUM_CLICK_INCREMENT),
+                    momentum: Math.min(100, state.momentum + momentumGain),
                     totalClicks: state.totalClicks + 1,
                     funds: state.funds + clickValue,
                     lifetimeEarnings: newLifetimeEarnings,
                     highestLifetimeEarnings: newHighest,
                     currentRankId: newRank.id,
+                    // XP and leveling
+                    xp: newXp,
+                    level: levelInfo.level,
+                    skillPoints: didLevelUp ? state.skillPoints + (levelInfo.level - state.level) : state.skillPoints,
+                    pendingLevelUp: didLevelUp ? true : state.pendingLevelUp,
                 }));
             },
 
@@ -299,13 +342,31 @@ export const useStore = create<GameState>()(
                 if (!activity) return;
 
                 const activityState = state.activities[id];
-                const cost = getActivityCost(activity.baseCost, activityState.owned);
+                // Apply skill cost reduction
+                const skillEffects = calculateSkillEffects(state.unlockedSkills);
+                const baseCost = getActivityCost(activity.baseCost, activityState.owned);
+                const cost = Math.floor(baseCost * skillEffects.activityCostMult);
 
                 if (state.funds >= cost) {
                     const newQuantity = activityState.owned + 1;
 
                     // Check if this purchase hits a milestone threshold
+                    // Apply recruitment chance multiplier from skills
                     const hitMilestone = MILESTONE_THRESHOLDS.includes(newQuantity);
+                    const shouldTriggerMiniGame = hitMilestone &&
+                        (skillEffects.recruitmentChanceMult >= 1 ? true : Math.random() < skillEffects.recruitmentChanceMult);
+
+                    // Extra recruitment drives from skill bonus
+                    const extraRecruitmentChance = skillEffects.recruitmentChanceMult > 1
+                        ? (skillEffects.recruitmentChanceMult - 1)
+                        : 0;
+                    const bonusRecruitment = !hitMilestone && extraRecruitmentChance > 0 && Math.random() < extraRecruitmentChance * 0.1;
+
+                    // Gain XP from purchase
+                    const xpGain = Math.floor(cost * XP_REWARDS.ACTIVITY_PURCHASE_MULT);
+                    const newXp = state.xp + xpGain;
+                    const levelInfo = calculateLevelFromXp(newXp);
+                    const didLevelUp = levelInfo.level > state.level;
 
                     set(state => ({
                         funds: state.funds - cost,
@@ -316,12 +377,17 @@ export const useStore = create<GameState>()(
                                 owned: newQuantity,
                             },
                         },
-                        // Trigger mini-game if milestone hit
-                        ...(hitMilestone ? {
+                        // Trigger mini-game if milestone hit or bonus recruitment
+                        ...((shouldTriggerMiniGame || bonusRecruitment) ? {
                             activeMiniGame: 'petition-blitz' as const,
                             miniGameScore: 0,
                             miniGameActivityId: id,
                         } : {}),
+                        // XP and leveling
+                        xp: newXp,
+                        level: levelInfo.level,
+                        skillPoints: didLevelUp ? state.skillPoints + (levelInfo.level - state.level) : state.skillPoints,
+                        pendingLevelUp: didLevelUp ? true : state.pendingLevelUp,
                     }));
                 }
             },
@@ -335,7 +401,10 @@ export const useStore = create<GameState>()(
                 const activityState = state.activities[id];
                 if (activityState.managerHired || activityState.owned === 0) return;
 
-                const cost = getManagerCost(activity.baseCost);
+                // Apply skill manager cost reduction
+                const skillEffects = calculateSkillEffects(state.unlockedSkills);
+                const baseCost = getManagerCost(activity.baseCost);
+                const cost = Math.floor(baseCost * skillEffects.managerCostMult);
 
                 if (state.funds >= cost) {
                     set(state => ({
@@ -368,13 +437,25 @@ export const useStore = create<GameState>()(
 
                 // Check if we have enough funds
                 if (state.funds >= policy.cost) {
-                    const newHappiness = Math.min(100, Math.max(0, state.happiness + policy.happinessChange));
+                    // Apply happiness gain skill multiplier
+                    const skillEffects = calculateSkillEffects(state.unlockedSkills);
+                    const happinessChange = policy.happinessChange > 0
+                        ? Math.ceil(policy.happinessChange * skillEffects.happinessGainMult)
+                        : policy.happinessChange; // Don't amplify negative changes
+
+                    const newHappiness = Math.min(100, Math.max(0, state.happiness + happinessChange));
                     const newUnlockedPolicies = [...state.unlockedPolicies, id];
 
                     // Check for Utopia condition: max happiness + all President policies unlocked
                     const isUtopia = state.currentStageIndex === 2 &&
                         newHappiness >= 100 &&
                         hasAllPresidentPolicies(newUnlockedPolicies);
+
+                    // Gain XP from policy purchase
+                    const xpGain = Math.floor(policy.cost * XP_REWARDS.POLICY_PURCHASE_MULT);
+                    const newXp = state.xp + xpGain;
+                    const levelInfo = calculateLevelFromXp(newXp);
+                    const didLevelUp = levelInfo.level > state.level;
 
                     set(state => ({
                         funds: state.funds - policy.cost,
@@ -383,6 +464,11 @@ export const useStore = create<GameState>()(
                         // Set policy for modal if it has impact content
                         lastPurchasedPolicy: policy.impactDescription ? policy : null,
                         utopiaAchieved: isUtopia,
+                        // XP and leveling
+                        xp: newXp,
+                        level: levelInfo.level,
+                        skillPoints: didLevelUp ? state.skillPoints + (levelInfo.level - state.level) : state.skillPoints,
+                        pendingLevelUp: didLevelUp ? true : state.pendingLevelUp,
                     }));
                 }
             },
@@ -437,8 +523,8 @@ export const useStore = create<GameState>()(
                     unlockedStructures: [],
                     // Do NOT reset unlockedMemories on hard reset? Maybe?
                     // User requested "Start the game and see... When I win...".
-                    // Usually scrapbooks are meta-progression. Let's keep them if it feels right, 
-                    // BUT hardReset implies "Total Wipe". 
+                    // Usually scrapbooks are meta-progression. Let's keep them if it feels right,
+                    // BUT hardReset implies "Total Wipe".
                     // Let's wipe them on HARD reset, but keep on PRESTIGE.
                     // Let's wipe them on HARD reset, but keep on PRESTIGE.
                     unlockedMemories: [],
@@ -457,6 +543,12 @@ export const useStore = create<GameState>()(
                     // Phase 9: Reset dilemmas
                     activeDilemma: null,
                     seenDilemmas: [],
+                    // Phase 13: Reset skill tree (hard reset wipes everything)
+                    xp: 0,
+                    level: 1,
+                    skillPoints: 0,
+                    unlockedSkills: [],
+                    pendingLevelUp: false,
                 });
             },
 
@@ -476,8 +568,11 @@ export const useStore = create<GameState>()(
                     // Global milestone multiplier
                     const globalMilestoneMultiplier = getGlobalMilestoneMultiplier(totalLevels);
 
-                    // Multipliers (including global milestone boost + morale)
-                    const totalMultiplier = calculateMultipliers({ ...state, momentum: newMomentum }) * globalMilestoneMultiplier;
+                    // Get skill effects for revenue multiplier
+                    const skillEffects = calculateSkillEffects(state.unlockedSkills);
+
+                    // Multipliers (including global milestone boost + morale + skill bonus)
+                    const totalMultiplier = calculateMultipliers({ ...state, momentum: newMomentum }) * globalMilestoneMultiplier * skillEffects.globalRevenueMult;
 
                     // Update activities
                     let earnings = 0;
@@ -635,7 +730,14 @@ export const useStore = create<GameState>()(
                 // Calculate bonus volunteers from prestige formula
                 const bonusVolunteers = Math.floor(Math.sqrt(state.lifetimeEarnings / VOLUNTEER_DIVISOR));
 
+                // Grant prestige XP bonus
+                const xpGain = XP_REWARDS.PRESTIGE_BONUS;
+                const newXp = state.xp + xpGain;
+                const levelInfo = calculateLevelFromXp(newXp);
+                const didLevelUp = levelInfo.level > state.level;
+
                 // Full reset - start a new campaign from City Council
+                // KEEP: XP, Level, Skills (permanent progression)
                 set({
                     funds: STARTING_FUNDS,
                     lifetimeEarnings: 0,
@@ -657,6 +759,12 @@ export const useStore = create<GameState>()(
                     activeEvent: null,
                     lastSaveTime: Date.now(),
                     runId: Date.now(), // Force UI refresh
+                    // Phase 13: KEEP skills through prestige + grant bonus XP
+                    xp: newXp,
+                    level: levelInfo.level,
+                    skillPoints: didLevelUp ? state.skillPoints + (levelInfo.level - state.level) : state.skillPoints,
+                    unlockedSkills: state.unlockedSkills, // KEEP skills - they are permanent!
+                    pendingLevelUp: didLevelUp ? true : state.pendingLevelUp,
                 });
             },
 
@@ -810,11 +918,22 @@ export const useStore = create<GameState>()(
                 const state = get();
                 const nextIndex = state.currentStageIndex + 1;
 
+                // Gain XP for winning debate
+                const xpGain = XP_REWARDS.DEBATE_WIN;
+                const newXp = state.xp + xpGain;
+                const levelInfo = calculateLevelFromXp(newXp);
+                const didLevelUp = levelInfo.level > state.level;
+
                 if (nextIndex >= STAGES.length) {
                     // Final stage - close debate
                     set({
                         activeDebate: false,
                         currentOpponent: null,
+                        // XP and leveling
+                        xp: newXp,
+                        level: levelInfo.level,
+                        skillPoints: didLevelUp ? state.skillPoints + (levelInfo.level - state.level) : state.skillPoints,
+                        pendingLevelUp: didLevelUp ? true : state.pendingLevelUp,
                     });
                     return;
                 }
@@ -825,6 +944,11 @@ export const useStore = create<GameState>()(
                     activeDebate: false,
                     currentOpponent: null,
                     lastSaveTime: Date.now(),
+                    // XP and leveling
+                    xp: newXp,
+                    level: levelInfo.level,
+                    skillPoints: didLevelUp ? state.skillPoints + (levelInfo.level - state.level) : state.skillPoints,
+                    pendingLevelUp: didLevelUp ? true : state.pendingLevelUp,
                 });
             },
 
@@ -835,6 +959,51 @@ export const useStore = create<GameState>()(
                     activeDebate: false,
                     currentOpponent: null,
                 }));
+            },
+
+            // Phase 13: Skill Tree actions
+            gainXp: (amount: number) => {
+                const state = get();
+                const newXp = state.xp + amount;
+                const levelInfo = calculateLevelFromXp(newXp);
+                const didLevelUp = levelInfo.level > state.level;
+
+                set({
+                    xp: newXp,
+                    level: levelInfo.level,
+                    skillPoints: didLevelUp ? state.skillPoints + (levelInfo.level - state.level) : state.skillPoints,
+                    pendingLevelUp: didLevelUp ? true : state.pendingLevelUp,
+                });
+            },
+
+            unlockSkill: (skillId: string) => {
+                const state = get();
+
+                // Check if we have skill points
+                if (state.skillPoints <= 0) return false;
+
+                // Check if skill can be unlocked
+                if (!canUnlockSkill(skillId, state.unlockedSkills)) return false;
+
+                // Get skill to verify it exists
+                const skill = getSkillById(skillId);
+                if (!skill) return false;
+
+                set({
+                    skillPoints: state.skillPoints - 1,
+                    unlockedSkills: [...state.unlockedSkills, skillId],
+                });
+
+                return true;
+            },
+
+            dismissLevelUp: () => {
+                set({ pendingLevelUp: false });
+            },
+
+            getSkillEffects: () => {
+                const state = get();
+                return calculateSkillEffects(state.unlockedSkills);
             },
         }),
         {
@@ -860,6 +1029,11 @@ export const useStore = create<GameState>()(
                 runId: state.runId,
                 tutorialStep: state.tutorialStep,
                 seenDilemmas: state.seenDilemmas,
+                // Phase 13: Skill Tree persistence
+                xp: state.xp,
+                level: state.level,
+                skillPoints: state.skillPoints,
+                unlockedSkills: state.unlockedSkills,
             }),
         }
     )

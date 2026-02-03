@@ -4,6 +4,11 @@ import { useStore } from '../store/useStore';
 import { useAudio } from '../hooks/useAudio';
 import { MomentumBar } from './MomentumBar';
 import { formatMoney } from '../utils/formatting';
+import { calculateSkillEffects } from '../config/skills';
+import { getMomentumMultiplier, VOLUNTEER_BONUS_PER } from '../config/gameConfig';
+import { getMoraleMultiplier } from '../config/stages';
+import { getPowerStructureMultiplier } from '../config/powerStructures';
+import { getPolicyById } from '../config/policies';
 
 interface FloatingNumber {
     id: number;
@@ -15,13 +20,39 @@ interface FloatingNumber {
 export function CanvassButton() {
     const canvass = useStore(state => state.canvass);
     const totalClicks = useStore(state => state.totalClicks);
+    const popularity = useStore(state => state.popularity);
+    const volunteers = useStore(state => state.volunteers);
+    const momentum = useStore(state => state.momentum);
+    const happiness = useStore(state => state.happiness);
+    const unlockedPolicies = useStore(state => state.unlockedPolicies);
+    const unlockedStructures = useStore(state => state.unlockedStructures);
+    const unlockedSkills = useStore(state => state.unlockedSkills);
+
     const { play } = useAudio();
     const [floatingNumbers, setFloatingNumbers] = useState<FloatingNumber[]>([]);
 
     const handleCanvass = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
-        // Get current click value (approximate - 1 * multipliers)
-        // For simplicity, we'll show +$1 base value
-        const clickValue = 1;
+        // Calculate actual click value with all multipliers
+        const skillEffects = calculateSkillEffects(unlockedSkills);
+        const momentumMultiplier = getMomentumMultiplier(momentum);
+        const volunteerMultiplier = 1 + (volunteers * VOLUNTEER_BONUS_PER);
+        const moraleMultiplier = getMoraleMultiplier(happiness);
+        const structureMultiplier = getPowerStructureMultiplier(unlockedStructures);
+
+        // Calculate global policy multiplier
+        const globalPolicyMultiplier = unlockedPolicies.reduce((mult, policyId) => {
+            const policy = getPolicyById(policyId);
+            if (policy && policy.type === 'global') {
+                return mult * policy.multiplier;
+            }
+            return mult;
+        }, 1);
+
+        const totalMultiplier = popularity * volunteerMultiplier * momentumMultiplier *
+            globalPolicyMultiplier * structureMultiplier * moraleMultiplier;
+
+        // Apply skill click value multiplier
+        const clickValue = 1 * totalMultiplier * skillEffects.clickValueMult;
 
         // Spawn floating number at click position
         const rect = e.currentTarget.getBoundingClientRect();
@@ -41,7 +72,7 @@ export function CanvassButton() {
 
         // Play sound effect
         play('canvass');
-    }, [canvass, play]);
+    }, [canvass, play, popularity, volunteers, momentum, happiness, unlockedPolicies, unlockedStructures, unlockedSkills]);
 
     return (
         <div id="canvass-button" className="glass-card p-6">
