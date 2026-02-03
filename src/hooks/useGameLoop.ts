@@ -9,6 +9,13 @@ export function useGameLoop() {
     const animationFrameId = useRef<number>(0);
 
     const gameLoop = useCallback((currentTime: number) => {
+        // CRITICAL: Stop the loop immediately if a reset is in progress.
+        // This prevents further state updates or saves during the teardown.
+        if (window.__PR_RESET_LOCK) {
+            console.log('[Loop] Terminated due to reset lock');
+            return;
+        }
+
         const deltaMs = currentTime - lastFrameTime.current;
         lastFrameTime.current = currentTime;
 

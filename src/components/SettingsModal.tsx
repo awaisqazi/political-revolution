@@ -150,12 +150,35 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     };
 
     // Hard reset - "Nuclear Option" for mobile stability (Android Chrome Fix)
-    const performHardReset = () => {
-        // 1. Clear ALL storage to ensure no persistent state remains
+    const performHardReset = async () => {
+        console.log('[Reset] Initiating Super Nuclear Reset...');
+        window.__PR_RESET_LOCK = true;
         localStorage.clear();
         sessionStorage.clear();
 
-        // 2. Force a hard reload with cache busting
+        // 3. Purge Cache API (The culprit for many "stuck" mobile states)
+        try {
+            if ('caches' in window) {
+                const cacheNames = await caches.keys();
+                await Promise.all(cacheNames.map(name => caches.delete(name)));
+                console.log('[Reset] Cache API purged');
+            }
+        } catch (e) {
+            console.error('[Reset] Cache purge failed:', e);
+        }
+
+        // 4. Unregister Service Workers
+        try {
+            if ('serviceWorker' in navigator) {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                await Promise.all(registrations.map(reg => reg.unregister()));
+                console.log('[Reset] Service workers unregistered');
+            }
+        } catch (e) {
+            console.error('[Reset] Service worker unregistration failed:', e);
+        }
+
+        // 5. Force a hard reload with cache busting
         // Using replace and a timestamp ensures browsers (especially mobile Chrome)
         // don't try to restore a cached/stale version of the page or its memory.
         const url = new URL(window.location.href);

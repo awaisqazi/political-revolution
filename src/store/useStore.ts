@@ -1,5 +1,12 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
+
+// Extend window interface for the reset lock
+declare global {
+    interface Window {
+        __PR_RESET_LOCK?: boolean;
+    }
+}
 import { ACTIVITIES, getActivityCost, getManagerCost } from '../config/activities';
 import { POLICIES, getPolicyById, hasAllPresidentPolicies, type Policy } from '../config/policies';
 import { RANKS, getRankForEarnings } from '../config/ranks';
@@ -1073,6 +1080,20 @@ export const useStore = create<GameState>()(
         }),
         {
             name: 'political-revolution-save',
+            storage: createJSONStorage(() => ({
+                getItem: (name) => localStorage.getItem(name),
+                removeItem: (name) => localStorage.removeItem(name),
+                setItem: (name, value) => {
+                    // CRITICAL: Block all writes if the reset lock is active.
+                    // This prevents race conditions where the app re-saves state 
+                    // during the teardown/reload process on mobile browsers.
+                    if (window.__PR_RESET_LOCK) {
+                        console.warn('[Persistence] Blocked write due to reset lock');
+                        return;
+                    }
+                    localStorage.setItem(name, value);
+                },
+            })),
             partialize: (state) => ({
                 funds: state.funds,
                 lifetimeEarnings: state.lifetimeEarnings,
