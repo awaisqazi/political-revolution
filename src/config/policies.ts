@@ -16,6 +16,9 @@ export interface Policy {
     happinessChange: number; // How much this affects public happiness (can be 0)
     impactTitle?: string; // Modal headline when passed
     impactDescription?: string; // Educational text explaining WHY this matters
+
+    // Phase 15: Polling Power
+    popularityBonus?: number; // Instant popularity boost when purchased (e.g., 0.05 = +5% popularity multiplier)
 }
 
 // Helper to generate activity upgrades
@@ -24,12 +27,13 @@ function activityUpgrade(
     cost: number, multiplier: number, triggerId: string,
     requiredOwned: number, tier: number,
     stage: StageId = 'activist', happinessChange: number = 0,
-    impactTitle?: string, impactDescription?: string
+    impactTitle?: string, impactDescription?: string,
+    popularityBonus?: number
 ): Policy {
     return {
         id, name, description, cost, multiplier, triggerId,
         type: 'activity', requiredOwned, tier,
-        stage, happinessChange, impactTitle, impactDescription
+        stage, happinessChange, impactTitle, impactDescription, popularityBonus
     };
 }
 
@@ -37,12 +41,13 @@ function globalUpgrade(
     id: string, name: string, description: string,
     cost: number, multiplier: number, requiredOwned: number, tier: number,
     stage: StageId = 'activist', happinessChange: number = 0,
-    impactTitle?: string, impactDescription?: string
+    impactTitle?: string, impactDescription?: string,
+    popularityBonus?: number
 ): Policy {
     return {
         id, name, description, cost, multiplier,
         type: 'global', requiredOwned, tier,
-        stage, happinessChange, impactTitle, impactDescription
+        stage, happinessChange, impactTitle, impactDescription, popularityBonus
     };
 }
 
@@ -143,9 +148,11 @@ export const POLICIES: Policy[] = [
         100000, 3, 'tiktok', 25, 3, 'state-rep', 0),
     activityUpgrade('duet-influencers', 'Influencer Duets', 'Collaborate with progressive creators',
         1000000, 3, 'tiktok', 50, 4, 'state-rep', 2,
-        'Youth Engaged!', 'A new generation discovers the movement through social media.'),
+        'Youth Engaged!', 'A new generation discovers the movement through social media.',
+        0.08), // +8% popularity surge!
     activityUpgrade('tiktok-ads', 'Targeted TikTok Ads', 'Reach persuadable young voters',
-        10000000, 3, 'tiktok', 100, 5, 'state-rep', 0),
+        10000000, 3, 'tiktok', 100, 5, 'state-rep', 0,
+        undefined, undefined, 0.1), // +10% popularity surge!
 
     // State Rep Global Reforms
     globalUpgrade('min-wage-15', '$15 State Minimum Wage', 'No worker should live in poverty',
@@ -164,14 +171,18 @@ export const POLICIES: Policy[] = [
 
     // BUS TOUR (🚌)
     activityUpgrade('bus-wrap', 'Campaign Bus Wrap', 'Turn your bus into a billboard',
-        25000, 3, 'bus-tour', 10, 2, 'congressman', 0),
+        25000, 3, 'bus-tour', 10, 2, 'congressman', 0,
+        undefined, undefined, 0.03), // +3% visibility boost
     activityUpgrade('wifi-hotspot', 'Mobile WiFi Hotspot', 'Work and stream on the road',
         250000, 3, 'bus-tour', 25, 3, 'congressman', 0),
     activityUpgrade('local-stops', 'Local Diner Stops', 'Shake hands in every small town',
         2500000, 3, 'bus-tour', 50, 4, 'congressman', 2,
-        'Main Street Reached!', 'Rural communities feel seen for the first time in years.'),
+        'Main Street Reached!', 'Rural communities feel seen for the first time in years.',
+        0.1), // +10% popularity surge from grassroots love!
     activityUpgrade('tour-documentary', 'Behind-the-Scenes Documentary', 'Netflix picks up your story',
-        25000000, 3, 'bus-tour', 100, 5, 'congressman', 0),
+        25000000, 3, 'bus-tour', 100, 5, 'congressman', 0,
+        'Media Sensation!', 'Your documentary inspires millions. A new wave of supporters joins.',
+        0.15), // +15% MASSIVE popularity surge!
 
     // Congressman Global Reforms
     globalUpgrade('infrastructure-bill', 'Infrastructure Investment', 'Roads, bridges, broadband for all',
@@ -213,15 +224,19 @@ export const POLICIES: Policy[] = [
 
     // STADIUM (🏟️)
     activityUpgrade('jumbotron', 'Jumbotron Graphics', 'Massive visual impact',
-        100000, 3, 'stadium', 10, 3, 'president', 0),
+        100000, 3, 'stadium', 10, 3, 'president', 0,
+        undefined, undefined, 0.05), // +5% from massive visibility
     activityUpgrade('pyrotechnics', 'Pyrotechnic Show', 'Unforgettable entrances',
-        1000000, 3, 'stadium', 25, 4, 'president', 0),
+        1000000, 3, 'stadium', 25, 4, 'president', 0,
+        undefined, undefined, 0.08), // +8% viral moments!
     activityUpgrade('headline-act', 'Headline Musical Act', 'Concert becomes rally',
         10000000, 3, 'stadium', 50, 5, 'president', 3,
-        'Culture Shifts!', 'When artists stand with the movement, hearts and minds follow.'),
+        'Culture Shifts!', 'When artists stand with the movement, hearts and minds follow.',
+        0.15), // +15% celebrity endorsement surge!
     activityUpgrade('multi-stadium', 'Multi-City Stadium Tour', 'Simultaneous events nationwide',
         100000000, 3, 'stadium', 100, 6, 'president', 4,
-        'Movement Nationalized!', 'The entire country watches. This is a movement.'),
+        'Movement Nationalized!', 'The entire country watches. This is a movement.',
+        0.2), // +20% MASSIVE national surge!
 
     // PRESIDENTIAL REFORMS
     globalUpgrade('green-new-deal', 'Green New Deal', 'Jobs and climate action together',

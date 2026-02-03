@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { useStore } from '../store/useStore';
+import { useStore, getPolling } from '../store/useStore';
 import { POLICIES, type Policy } from '../config/policies';
 import type { Opponent } from '../config/stages';
 import { calculateSkillEffects } from '../config/skills';
@@ -13,7 +13,9 @@ export type MoveType = 'Logic' | 'Appeal' | 'Fact';
 export interface BattleMove {
     id: string;
     name: string;
-    damage: number;
+    damage: number;          // Final damage after polling scaling
+    baseDamage: number;      // Original damage before polling scaling
+    pollingMultiplier: number; // The polling-based damage multiplier
     maxCooldown: number; // Turns to recharge after use
     type: MoveType;
     description: string;
@@ -51,20 +53,25 @@ const calculatePlayerHp = (happiness: number): number => {
     return Math.max(50, Math.floor(happiness * 1.5));
 };
 
-// Convert a policy to a battle move (with skill effects applied)
+// Convert a policy to a battle move (with skill effects and polling scaling applied)
 const policyToBattleMove = (
     policy: Policy,
     stageIndex: number,
     damageMult: number = 1,
-    cooldownReduction: number = 0
+    cooldownReduction: number = 0,
+    pollingMultiplier: number = 1
 ): BattleMove => {
     // Damage scales with cost, but also by stage (earlier stages = lower damage scale)
     const stageDamageMultiplier = 1 + (stageIndex * 0.5);
-    const baseDamage = Math.ceil((policy.cost / 1000) * stageDamageMultiplier);
+    const rawBaseDamage = Math.ceil((policy.cost / 1000) * stageDamageMultiplier);
     // Apply skill damage multiplier
-    const boostedDamage = Math.ceil(baseDamage * damageMult);
-    // Clamp damage between 5 and 50 for balance
-    const damage = Math.max(5, Math.min(50, boostedDamage));
+    const boostedDamage = Math.ceil(rawBaseDamage * damageMult);
+    // Clamp base damage between 5 and 50 for balance
+    const baseDamage = Math.max(5, Math.min(50, boostedDamage));
+
+    // Apply polling-based damage scaling: FinalDamage = BaseDamage * (Polling / 50)
+    // At 50% polling = 1.0x, at 75% = 1.5x, at 25% = 0.5x
+    const finalDamage = Math.max(1, Math.round(baseDamage * pollingMultiplier));
 
     // Cooldown based on cost: cheap = 0, expensive = 3
     const baseCooldown = policy.cost <= 1000 ? 0
@@ -88,7 +95,9 @@ const policyToBattleMove = (
     return {
         id: policy.id,
         name: policy.name,
-        damage,
+        damage: finalDamage,
+        baseDamage,
+        pollingMultiplier,
         maxCooldown: cooldown,
         type,
         description: policy.description,
@@ -105,11 +114,20 @@ export function useDebate(opponent: Opponent | null) {
     const happiness = useStore(state => state.happiness);
     const currentStageIndex = useStore(state => state.currentStageIndex);
     const unlockedSkills = useStore(state => state.unlockedSkills);
+    const lifetimeEarnings = useStore(state => state.lifetimeEarnings);
+    const popularity = useStore(state => state.popularity);
+    const momentum = useStore(state => state.momentum);
 
     // Get skill effects for debate bonuses
     const skillEffects = calculateSkillEffects(unlockedSkills);
 
-    // Generate battle moves from unlocked policies (with skill effects applied)
+    // Calculate polling and polling-based damage multiplier
+    const polling = getPolling({ lifetimeEarnings, popularity, momentum, happiness });
+    // Polling damage formula: Polling / 50 = multiplier
+    // At 50% polling = 1.0x, at 75% = 1.5x, at 25% = 0.5x
+    const pollingMultiplier = polling / 50;
+
+    // Generate battle moves from unlocked policies (with skill effects and polling scaling applied)
     const moves: BattleMove[] = unlockedPolicies
         .map(id => POLICIES.find(p => p.id === id))
         .filter((p): p is Policy => p !== undefined)
@@ -117,14 +135,18 @@ export function useDebate(opponent: Opponent | null) {
             policy,
             currentStageIndex,
             skillEffects.debateDamageMult,
-            skillEffects.debateCooldownReduction
+            skillEffects.debateCooldownReduction,
+            pollingMultiplier
         ));
 
-    // If no policies unlocked, provide a basic attack (with skill damage boost)
+    // If no policies unlocked, provide a basic attack (with skill damage boost and polling scaling)
+    const baseDamageDefault = Math.ceil(5 * skillEffects.debateDamageMult);
     const defaultMove: BattleMove = {
         id: 'basic-argument',
         name: 'Basic Argument',
-        damage: Math.ceil(5 * skillEffects.debateDamageMult),
+        damage: Math.max(1, Math.round(baseDamageDefault * pollingMultiplier)),
+        baseDamage: baseDamageDefault,
+        pollingMultiplier,
         maxCooldown: 0,
         type: 'Logic',
         description: 'A simple but honest point',
@@ -295,14 +317,23 @@ export function useDebate(opponent: Opponent | null) {
         }
     }, [state.turn, state.isComplete, executeEnemyTurn]);
 
-    // Get move preview info
+    // Get move preview info (including polling scaling details for UI feedback)
     const getMovePreview = useCallback((moveId: string) => {
         const move = allMoves.find(m => m.id === moveId);
-        if (!move) return { damage: 0, cooldown: 0, onCooldown: false, turnsRemaining: 0 };
+        if (!move) return {
+            damage: 0,
+            baseDamage: 0,
+            pollingMultiplier: 1,
+            cooldown: 0,
+            onCooldown: false,
+            turnsRemaining: 0,
+        };
 
         const turnsRemaining = state.cooldowns[moveId] ?? 0;
         return {
             damage: move.damage,
+            baseDamage: move.baseDamage,
+            pollingMultiplier: move.pollingMultiplier,
             cooldown: move.maxCooldown,
             onCooldown: turnsRemaining > 0,
             turnsRemaining,
@@ -315,5 +346,7 @@ export function useDebate(opponent: Opponent | null) {
         useMove,
         getMovePreview,
         resetBattle,
+        polling,              // Expose current polling for UI display
+        pollingMultiplier,    // Expose multiplier for damage tooltips
     };
 }

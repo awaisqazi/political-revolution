@@ -21,6 +21,8 @@ export function DebateModal() {
         useMove,
         getMovePreview,
         resetBattle,
+        polling,
+        pollingMultiplier,
     } = useDebate(currentOpponent);
 
     const logEndRef = useRef<HTMLDivElement>(null);
@@ -137,6 +139,40 @@ export function DebateModal() {
 
                         {/* Scrollable Battle Arena */}
                         <div className="flex-1 overflow-y-auto p-4">
+                            {/* Polling Power Indicator */}
+                            <div className={`mb-3 p-2 rounded-lg border ${
+                                pollingMultiplier >= 1
+                                    ? 'bg-emerald-500/10 border-emerald-500/30'
+                                    : 'bg-red-500/10 border-red-500/30'
+                            }`}>
+                                <div className="flex items-center justify-between text-xs">
+                                    <span className="text-slate-400">📊 Your Polling Power:</span>
+                                    <span className={`font-bold ${
+                                        pollingMultiplier >= 1.2
+                                            ? 'text-emerald-400'
+                                            : pollingMultiplier >= 1
+                                                ? 'text-emerald-300'
+                                                : pollingMultiplier >= 0.8
+                                                    ? 'text-amber-400'
+                                                    : 'text-red-400'
+                                    }`}>
+                                        {polling.toFixed(1)}% = {pollingMultiplier.toFixed(2)}x Damage
+                                    </span>
+                                </div>
+                                <div className="h-1.5 bg-slate-700 rounded-full mt-1.5 overflow-hidden">
+                                    <motion.div
+                                        className={`h-full rounded-full ${
+                                            pollingMultiplier >= 1
+                                                ? 'bg-gradient-to-r from-emerald-600 to-green-400'
+                                                : 'bg-gradient-to-r from-red-600 to-amber-400'
+                                        }`}
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${Math.min(100, polling)}%` }}
+                                        transition={{ type: 'spring', damping: 15 }}
+                                    />
+                                </div>
+                            </div>
+
                             {/* Combatants Row - Compact */}
                             <div className="grid grid-cols-2 gap-4 mb-4">
                                 {/* Player Side (LEFT) */}
@@ -292,7 +328,7 @@ export function DebateModal() {
 
                                                 <div className="text-xs font-semibold text-white truncate mb-1">{move.name}</div>
                                                 <div className="flex items-center justify-between">
-                                                    <div className="text-[10px] font-medium text-emerald-400">
+                                                    <div className="text-[10px] font-medium text-emerald-400" title={`Base: ${move.baseDamage} × ${(move.pollingMultiplier * 100).toFixed(0)}% Polling`}>
                                                         ⚔️ {move.damage}
                                                     </div>
                                                     {move.maxCooldown > 0 && !preview.onCooldown && (
@@ -300,6 +336,12 @@ export function DebateModal() {
                                                             CD:{move.maxCooldown}
                                                         </div>
                                                     )}
+                                                </div>
+                                                {/* Polling scaling indicator */}
+                                                <div className={`text-[8px] mt-0.5 ${
+                                                    move.pollingMultiplier >= 1 ? 'text-emerald-500' : 'text-red-400'
+                                                }`}>
+                                                    {move.pollingMultiplier >= 1 ? '↑' : '↓'} {(move.pollingMultiplier * 100).toFixed(0)}% poll
                                                 </div>
                                             </motion.button>
                                         );

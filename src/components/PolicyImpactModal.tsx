@@ -1,32 +1,54 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { useStore } from '../store/useStore';
+import { useStore, getPolling } from '../store/useStore';
 import { useEffect, useState } from 'react';
 
 export function PolicyImpactModal() {
     const lastPurchasedPolicy = useStore(state => state.lastPurchasedPolicy);
     const clearPolicyModal = useStore(state => state.clearPolicyModal);
     const happiness = useStore(state => state.happiness);
+    const popularity = useStore(state => state.popularity);
+    const lifetimeEarnings = useStore(state => state.lifetimeEarnings);
+    const momentum = useStore(state => state.momentum);
 
     const [previousHappiness, setPreviousHappiness] = useState(happiness);
     const [animatedHappiness, setAnimatedHappiness] = useState(happiness);
+    const [previousPopularity, setPreviousPopularity] = useState(popularity);
+    const [, setAnimatedPopularity] = useState(popularity);
 
-    // Capture the happiness before the change
+    // Calculate current polling
+    const polling = getPolling({ lifetimeEarnings, popularity, momentum, happiness });
+
+    // Capture the happiness and popularity before the change
     useEffect(() => {
-        if (lastPurchasedPolicy && lastPurchasedPolicy.happinessChange > 0) {
-            const oldHappiness = happiness - lastPurchasedPolicy.happinessChange;
-            setPreviousHappiness(Math.max(0, oldHappiness));
-            setAnimatedHappiness(Math.max(0, oldHappiness));
+        if (lastPurchasedPolicy) {
+            // Handle happiness animation
+            if (lastPurchasedPolicy.happinessChange > 0) {
+                const oldHappiness = happiness - lastPurchasedPolicy.happinessChange;
+                setPreviousHappiness(Math.max(0, oldHappiness));
+                setAnimatedHappiness(Math.max(0, oldHappiness));
 
-            // Animate to new value after a short delay
-            const timer = setTimeout(() => {
-                setAnimatedHappiness(happiness);
-            }, 500);
+                const timer = setTimeout(() => {
+                    setAnimatedHappiness(happiness);
+                }, 500);
+                return () => clearTimeout(timer);
+            }
 
-            return () => clearTimeout(timer);
+            // Handle popularity animation (Phase 15)
+            if (lastPurchasedPolicy.popularityBonus && lastPurchasedPolicy.popularityBonus > 0) {
+                const oldPopularity = popularity - lastPurchasedPolicy.popularityBonus;
+                setPreviousPopularity(Math.max(0, oldPopularity));
+                setAnimatedPopularity(Math.max(0, oldPopularity));
+
+                const timer = setTimeout(() => {
+                    setAnimatedPopularity(popularity);
+                }, 500);
+                return () => clearTimeout(timer);
+            }
         }
-    }, [lastPurchasedPolicy, happiness]);
+    }, [lastPurchasedPolicy, happiness, popularity]);
 
-    if (!lastPurchasedPolicy || !lastPurchasedPolicy.impactDescription) return null;
+    // Show modal if there's impact description OR popularity bonus
+    if (!lastPurchasedPolicy || (!lastPurchasedPolicy.impactDescription && !lastPurchasedPolicy.popularityBonus)) return null;
 
     const getHappinessColor = (value: number) => {
         if (value >= 80) return 'from-emerald-500 to-green-400';
@@ -179,6 +201,65 @@ export function PolicyImpactModal() {
                                         ✨ UTOPIA ACHIEVED ✨
                                     </motion.p>
                                 )}
+                            </motion.div>
+                        )}
+
+                        {/* Phase 15: Polling Surge Animation */}
+                        {lastPurchasedPolicy.popularityBonus && lastPurchasedPolicy.popularityBonus > 0 && (
+                            <motion.div
+                                initial={{ y: 20, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                transition={{ delay: lastPurchasedPolicy.happinessChange > 0 ? 1.5 : 0.6 }}
+                                className="space-y-2"
+                            >
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-slate-400">📊 Polling Surge!</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-slate-500">{(previousPopularity * 100 - 100).toFixed(0)}%</span>
+                                        <motion.span
+                                            initial={{ x: -10, opacity: 0 }}
+                                            animate={{ x: 0, opacity: 1 }}
+                                            transition={{ delay: lastPurchasedPolicy.happinessChange > 0 ? 2.5 : 1 }}
+                                            className="text-blue-400"
+                                        >
+                                            → {((popularity - 1) * 100).toFixed(0)}%
+                                        </motion.span>
+                                        <motion.span
+                                            initial={{ scale: 0 }}
+                                            animate={{ scale: 1 }}
+                                            transition={{ delay: lastPurchasedPolicy.happinessChange > 0 ? 2.7 : 1.2, type: 'spring' }}
+                                            className="text-blue-300 text-xs font-medium px-1.5 py-0.5 bg-blue-500/20 rounded"
+                                        >
+                                            +{(lastPurchasedPolicy.popularityBonus * 100).toFixed(0)}% Pop
+                                        </motion.span>
+                                    </div>
+                                </div>
+
+                                <div className="h-4 bg-slate-800 rounded-full overflow-hidden">
+                                    <motion.div
+                                        className="h-full bg-gradient-to-r from-blue-600 via-cyan-500 to-emerald-400 rounded-full relative"
+                                        initial={{ width: `${Math.min(100, polling - (lastPurchasedPolicy.popularityBonus * 50))}%` }}
+                                        animate={{ width: `${Math.min(100, polling)}%` }}
+                                        transition={{ duration: 1, delay: lastPurchasedPolicy.happinessChange > 0 ? 2.3 : 0.8, ease: 'easeOut' }}
+                                    >
+                                        {/* Shimmer effect */}
+                                        <motion.div
+                                            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+                                            initial={{ x: '-100%' }}
+                                            animate={{ x: '100%' }}
+                                            transition={{ duration: 1.5, delay: lastPurchasedPolicy.happinessChange > 0 ? 2.8 : 1.3, ease: 'easeInOut' }}
+                                        />
+                                    </motion.div>
+                                </div>
+
+                                <motion.p
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    transition={{ delay: lastPurchasedPolicy.happinessChange > 0 ? 3 : 1.5 }}
+                                    className="text-center text-xs text-blue-400"
+                                >
+                                    Current Polling: {polling.toFixed(1)}% {polling >= 51 ? '✓ LEADING' : '— Building Support'}
+                                </motion.p>
                             </motion.div>
                         )}
 

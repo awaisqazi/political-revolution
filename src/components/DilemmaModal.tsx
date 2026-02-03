@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../store/useStore';
 import { STAGES } from '../config/stages';
+import { getPollingImpactText } from '../config/dilemmas';
 
 export function DilemmaModal() {
     const activeDilemma = useStore(state => state.activeDilemma);
@@ -123,9 +124,21 @@ export function DilemmaModal() {
                                     <div className="font-semibold text-base mb-1">
                                         {activeDilemma.choiceA.text}
                                     </div>
-                                    <div className="text-xs text-white/80">
+                                    <div className="text-xs text-white/80 mb-1">
                                         {formatEffects(activeDilemma.choiceA.effects)}
                                     </div>
+                                    {/* Polling Impact Indicator */}
+                                    {activeDilemma.choiceA.pollingImpact && (
+                                        <div className={`text-xs font-medium ${
+                                            activeDilemma.choiceA.pollingImpact.includes('positive')
+                                                ? 'text-emerald-200'
+                                                : activeDilemma.choiceA.pollingImpact.includes('negative')
+                                                    ? 'text-red-200'
+                                                    : 'text-white/60'
+                                        }`}>
+                                            {getPollingImpactText(activeDilemma.choiceA.pollingImpact).text}
+                                        </div>
+                                    )}
                                 </motion.button>
 
                                 {/* Choice B */}
@@ -138,9 +151,21 @@ export function DilemmaModal() {
                                     <div className="font-semibold text-base mb-1">
                                         {activeDilemma.choiceB.text}
                                     </div>
-                                    <div className="text-xs text-white/80">
+                                    <div className="text-xs text-white/80 mb-1">
                                         {formatEffects(activeDilemma.choiceB.effects)}
                                     </div>
+                                    {/* Polling Impact Indicator */}
+                                    {activeDilemma.choiceB.pollingImpact && (
+                                        <div className={`text-xs font-medium ${
+                                            activeDilemma.choiceB.pollingImpact.includes('positive')
+                                                ? 'text-emerald-200'
+                                                : activeDilemma.choiceB.pollingImpact.includes('negative')
+                                                    ? 'text-red-200'
+                                                    : 'text-white/60'
+                                        }`}>
+                                            {getPollingImpactText(activeDilemma.choiceB.pollingImpact).text}
+                                        </div>
+                                    )}
                                 </motion.button>
                             </div>
 

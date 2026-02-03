@@ -245,6 +245,51 @@ export function getClickValue(state: MultiplierDependencies & { unlockedSkills: 
 }
 
 // ================================================
+// Polling Calculation (Hero Stat)
+// ================================================
+
+// Polling threshold - higher earnings = higher base polling
+const POLLING_EARNINGS_THRESHOLD = 100000; // $100k = baseline 50%
+
+/**
+ * Calculate polling percentage (0-100)
+ * This is THE hero stat that determines debate power and win viability.
+ *
+ * Formula:
+ * - Base: (LifetimeEarnings / Threshold) creates a fundraising floor
+ * - Multiplied by Popularity (0.0 to 2.0) for campaign effectiveness
+ * - Momentum Bonus: If momentum > 50, add +2% (active play reward)
+ * - Clamped to 0-100%
+ */
+export function getPolling(state: Pick<GameState, 'lifetimeEarnings' | 'popularity' | 'momentum' | 'happiness'>): number {
+    // Base polling from fundraising progress (0-50 at threshold)
+    const fundraisingBase = Math.min(50, (state.lifetimeEarnings / POLLING_EARNINGS_THRESHOLD) * 50);
+
+    // Popularity multiplier (0.0 to 2.0) - can double or halve your base
+    const popularityFactor = state.popularity;
+
+    // Happiness contributes slightly (happy base = stronger polling)
+    const happinessBonus = (state.happiness - 50) / 10; // -5 to +5 based on happiness
+
+    // Calculate base polling
+    let polling = fundraisingBase * popularityFactor + happinessBonus;
+
+    // MOMENTUM BONUS: High energy (>50) gives a flat +2% polling boost
+    // This rewards active clickers right before debates!
+    if (state.momentum > 50) {
+        polling += 2;
+    }
+
+    // Extra momentum scaling: every 25 momentum above 50 adds another +1%
+    if (state.momentum > 50) {
+        polling += Math.floor((state.momentum - 50) / 25);
+    }
+
+    // Clamp to valid range
+    return Math.max(0, Math.min(100, polling));
+}
+
+// ================================================
 // Zustand Store
 // ================================================
 
@@ -451,7 +496,7 @@ export const useStore = create<GameState>()(
                 });
             },
 
-            // Buy a policy upgrade - now affects happiness and triggers modal
+            // Buy a policy upgrade - now affects happiness, popularity, and triggers modal
             buyPolicy: (id: string) => {
                 const policy = POLICIES.find(p => p.id === id);
                 if (!policy) return;
@@ -478,6 +523,10 @@ export const useStore = create<GameState>()(
                     const newHappiness = Math.min(100, Math.max(0, state.happiness + happinessChange));
                     const newUnlockedPolicies = [...state.unlockedPolicies, id];
 
+                    // Phase 15: Apply popularity bonus if present (instant polling surge!)
+                    const popularityBonus = policy.popularityBonus || 0;
+                    const newPopularity = Math.max(0, Math.min(2.0, state.popularity + popularityBonus));
+
                     // Check for Utopia condition: max happiness + all President policies unlocked
                     const isUtopia = state.currentStageIndex === 2 &&
                         newHappiness >= 100 &&
@@ -494,8 +543,9 @@ export const useStore = create<GameState>()(
                         funds: state.funds - policy.cost,
                         unlockedPolicies: newUnlockedPolicies,
                         happiness: newHappiness,
-                        // Set policy for modal if it has impact content
-                        lastPurchasedPolicy: policy.impactDescription ? policy : null,
+                        popularity: newPopularity, // Phase 15: Instant polling boost!
+                        // Set policy for modal if it has impact content OR popularity bonus
+                        lastPurchasedPolicy: (policy.impactDescription || popularityBonus > 0) ? policy : null,
                         utopiaAchieved: isUtopia,
                         // XP and leveling - uses fresh state.level
                         xp: newXp,
@@ -511,21 +561,14 @@ export const useStore = create<GameState>()(
                 set({ lastPurchasedPolicy: null });
             },
 
-            // Promote to next stage (advance level)
+            // Promote to next stage (advance level) - SYSTEM ACTION ONLY
             promoteStage: () => {
                 const state = get();
                 const nextIndex = state.currentStageIndex + 1;
 
                 if (nextIndex >= STAGES.length) return; // Already at max
 
-                // Check if eligible to promote
-                // Note: STAGES[state.currentStageIndex] might be undefined if index is messed up, handled in canPromoteStage or just check existence
-                if (!canPromoteStage(state.currentStageIndex, state.lifetimeEarnings, state.happiness)) {
-                    return;
-                }
-
-                // Advance to next stage - KEEP current progress (funds, activities, etc.)
-                // "Winning" an election just moves you to the next level of influence.
+                // Advance to next stage
                 set({
                     currentStageIndex: nextIndex,
                     lastSaveTime: Date.now(),
@@ -939,7 +982,7 @@ export const useStore = create<GameState>()(
                 const currentStage = STAGES[state.currentStageIndex];
                 if (!currentStage?.opponent) return;
 
-                // Check if eligible
+                // Double check eligibility (UI hides button, but safe to check here)
                 if (!canPromoteStage(state.currentStageIndex, state.lifetimeEarnings, state.happiness)) {
                     return;
                 }
@@ -951,44 +994,25 @@ export const useStore = create<GameState>()(
             },
 
             winDebate: () => {
-                // Fully functional state update to prevent race conditions
+                // 1. Grant Rewards (XP)
                 set(state => {
-                    const nextIndex = state.currentStageIndex + 1;
-
-                    // Gain XP for winning debate
                     const xpGain = XP_REWARDS.DEBATE_WIN;
                     const newXp = state.xp + xpGain;
                     const levelInfo = calculateLevelFromXp(newXp);
                     const levelsGained = levelInfo.level - state.level;
 
-                    if (nextIndex >= STAGES.length) {
-                        // Final stage - close debate
-                        return {
-                            ...state,
-                            activeDebate: false,
-                            currentOpponent: null,
-                            // XP and leveling - uses fresh state.level
-                            xp: newXp,
-                            level: levelInfo.level,
-                            skillPoints: state.skillPoints + levelsGained,
-                            pendingLevelUp: levelsGained > 0 ? true : state.pendingLevelUp,
-                        };
-                    }
-
-                    // Actually promote the stage
                     return {
-                        ...state,
-                        currentStageIndex: nextIndex,
-                        activeDebate: false,
-                        currentOpponent: null,
-                        lastSaveTime: Date.now(),
-                        // XP and leveling - uses fresh state.level
                         xp: newXp,
                         level: levelInfo.level,
                         skillPoints: state.skillPoints + levelsGained,
                         pendingLevelUp: levelsGained > 0 ? true : state.pendingLevelUp,
+                        activeDebate: false,
+                        currentOpponent: null,
                     };
                 });
+
+                // 2. Trigger Promotion
+                get().promoteStage();
             },
 
             loseDebate: () => {

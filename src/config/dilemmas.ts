@@ -14,6 +14,29 @@ export interface DilemmaChoice {
     text: string;
     effects: DilemmaEffect;
     flavor: string;
+    pollingImpact?: 'high-positive' | 'positive' | 'neutral' | 'negative' | 'high-negative';
+}
+
+// Helper to determine polling impact from popularity change (exported for auto-calculation if needed)
+export function getPollingImpact(popularityChange: number | undefined): DilemmaChoice['pollingImpact'] {
+    if (!popularityChange) return 'neutral';
+    if (popularityChange >= 0.15) return 'high-positive';
+    if (popularityChange > 0) return 'positive';
+    if (popularityChange <= -0.1) return 'high-negative';
+    if (popularityChange < 0) return 'negative';
+    return 'neutral';
+}
+
+// Helper to get polling impact text for display
+export function getPollingImpactText(impact: DilemmaChoice['pollingImpact']): { text: string; color: string } {
+    switch (impact) {
+        case 'high-positive': return { text: '📈 Polling Impact: SURGE', color: 'text-emerald-400' };
+        case 'positive': return { text: '📈 Polling Impact: Positive', color: 'text-green-400' };
+        case 'neutral': return { text: '📊 Polling Impact: Minimal', color: 'text-slate-400' };
+        case 'negative': return { text: '📉 Polling Impact: Negative', color: 'text-amber-400' };
+        case 'high-negative': return { text: '📉 Polling Impact: CRASH', color: 'text-red-400' };
+        default: return { text: '📊 Polling Impact: Unknown', color: 'text-slate-400' };
+    }
 }
 
 export interface Dilemma {
@@ -41,11 +64,13 @@ const CITY_DILEMMAS: Dilemma[] = [
             text: 'Support the Strike',
             effects: { popularity: 0.15, funds: -5000, happiness: 8 },
             flavor: 'The union remembers those who stand with workers!',
+            pollingImpact: 'high-positive',
         },
         choiceB: {
             text: 'Negotiate Quietly',
             effects: { popularity: -0.08, funds: 2000, happiness: -5 },
             flavor: 'The budget is balanced, but teachers feel betrayed.',
+            pollingImpact: 'negative',
         },
     },
     {
@@ -58,11 +83,13 @@ const CITY_DILEMMAS: Dilemma[] = [
             text: 'Protect the Garden',
             effects: { popularity: 0.12, happiness: 10, funds: -3000 },
             flavor: 'The community celebrates! You\'re a local hero.',
+            pollingImpact: 'positive',
         },
         choiceB: {
             text: 'Allow Development',
             effects: { popularity: -0.1, happiness: -8, funds: 8000 },
             flavor: 'New housing is built, but the neighborhood feels different now.',
+            pollingImpact: 'high-negative',
         },
     },
     {
@@ -75,11 +102,13 @@ const CITY_DILEMMAS: Dilemma[] = [
             text: 'Support Oversight',
             effects: { popularity: 0.1, happiness: 12, volunteers: 5 },
             flavor: 'Activists rally to your cause! The movement grows.',
+            pollingImpact: 'positive',
         },
         choiceB: {
             text: 'Table the Issue',
             effects: { popularity: -0.05, happiness: -3, funds: 1000 },
             flavor: 'You avoided controversy, but the community is disappointed.',
+            pollingImpact: 'negative',
         },
     },
     {
@@ -92,11 +121,13 @@ const CITY_DILEMMAS: Dilemma[] = [
             text: 'Block the Big Box',
             effects: { popularity: 0.08, happiness: 6, funds: -4000 },
             flavor: 'Main Street merchants throw you a thank-you party!',
+            pollingImpact: 'positive',
         },
         choiceB: {
             text: 'Welcome Competition',
             effects: { popularity: -0.06, happiness: -4, funds: 6000 },
             flavor: 'New jobs are created, but several beloved shops close.',
+            pollingImpact: 'negative',
         },
     },
 ];
@@ -116,11 +147,13 @@ const STATE_DILEMMAS: Dilemma[] = [
             text: 'Champion the Bill',
             effects: { popularity: 0.15, happiness: 15, funds: -20000 },
             flavor: 'Thousands gain coverage. You\'re a healthcare hero!',
+            pollingImpact: 'high-positive',
         },
         choiceB: {
             text: 'Seek Compromise',
             effects: { popularity: -0.05, happiness: 3, funds: 10000 },
             flavor: 'A watered-down bill passes. Progress, but at what cost?',
+            pollingImpact: 'negative',
         },
     },
     {
@@ -133,11 +166,13 @@ const STATE_DILEMMAS: Dilemma[] = [
             text: 'Close Loopholes',
             effects: { popularity: 0.12, happiness: 10, funds: 15000 },
             flavor: 'Corporations are furious, but working families cheer!',
+            pollingImpact: 'positive',
         },
         choiceB: {
             text: 'Cut Property Taxes',
             effects: { popularity: 0.08, happiness: 5, funds: -10000 },
             flavor: 'Homeowners love you. Renters... not so much.',
+            pollingImpact: 'positive',
         },
     },
     {
@@ -150,11 +185,13 @@ const STATE_DILEMMAS: Dilemma[] = [
             text: 'Demand Accountability',
             effects: { popularity: 0.2, happiness: 8, volunteers: 10 },
             flavor: 'Your integrity shines. New supporters flood in!',
+            pollingImpact: 'high-positive',
         },
         choiceB: {
             text: 'Defend Your Ally',
             effects: { popularity: -0.15, happiness: -10, funds: 5000 },
             flavor: 'Your ally is grateful, but the press is merciless.',
+            pollingImpact: 'high-negative',
         },
     },
     {
@@ -167,11 +204,13 @@ const STATE_DILEMMAS: Dilemma[] = [
             text: 'Prioritize Equity',
             effects: { popularity: 0.1, happiness: 12, funds: -8000 },
             flavor: 'Underfunded schools get a lifeline. Parents are grateful.',
+            pollingImpact: 'positive',
         },
         choiceB: {
             text: 'Maintain Status Quo',
             effects: { popularity: -0.05, happiness: -5, funds: 3000 },
             flavor: 'You avoided the fight, but inequality persists.',
+            pollingImpact: 'negative',
         },
     },
 ];
@@ -191,11 +230,13 @@ const NATIONAL_DILEMMAS: Dilemma[] = [
             text: 'Vote for the Planet',
             effects: { popularity: 0.2, happiness: 20, funds: -50000 },
             flavor: 'History will remember this moment. Young voters surge!',
+            pollingImpact: 'high-positive',
         },
         choiceB: {
             text: 'Abstain',
             effects: { popularity: -0.1, happiness: -15, funds: 30000 },
             flavor: 'You kept donor support, but activists feel betrayed.',
+            pollingImpact: 'high-negative',
         },
     },
     {
@@ -208,11 +249,13 @@ const NATIONAL_DILEMMAS: Dilemma[] = [
             text: 'Vote Against War',
             effects: { popularity: 0.15, happiness: 10, volunteers: 20 },
             flavor: 'The anti-war movement rallies behind you!',
+            pollingImpact: 'high-positive',
         },
         choiceB: {
             text: 'Support the President',
             effects: { popularity: -0.08, happiness: -12, funds: 20000 },
             flavor: 'Party leadership is pleased. Your base is not.',
+            pollingImpact: 'negative',
         },
     },
     {
@@ -225,11 +268,13 @@ const NATIONAL_DILEMMAS: Dilemma[] = [
             text: 'Vote No',
             effects: { popularity: 0.18, happiness: 15, funds: -25000 },
             flavor: 'You stood on principle. Donations pour in from activists!',
+            pollingImpact: 'high-positive',
         },
         choiceB: {
             text: 'Vote Yes',
             effects: { popularity: -0.12, happiness: -18, funds: 40000 },
             flavor: 'Establishment donors reward your pragmatism.',
+            pollingImpact: 'high-negative',
         },
     },
     {
@@ -242,11 +287,13 @@ const NATIONAL_DILEMMAS: Dilemma[] = [
             text: 'Protect the Whistleblower',
             effects: { popularity: 0.15, happiness: 12, volunteers: 15 },
             flavor: 'You\'re a champion of transparency! Trust surges.',
+            pollingImpact: 'high-positive',
         },
         choiceB: {
             text: 'Stay Silent',
             effects: { popularity: -0.1, happiness: -8, funds: 15000 },
             flavor: 'The intelligence community owes you a favor...',
+            pollingImpact: 'high-negative',
         },
     },
 ];
