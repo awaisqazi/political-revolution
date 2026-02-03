@@ -53,8 +53,11 @@ export function ResetGameModal({ isOpen, onClose, onConfirm }: ResetGameModalPro
                             </button>
                             <button
                                 onClick={() => {
+                                    // CRITICAL: Do NOT call onClose() here. 
+                                    // Calling onConfirm() will trigger a page reload. 
+                                    // Closing the modal first might trigger a React re-render/auto-save cycle 
+                                    // that restores the old state to localStorage before the reload completes.
                                     onConfirm();
-                                    onClose();
                                 }}
                                 className="flex-1 px-4 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-500 transition-colors shadow-lg shadow-red-900/30"
                             >

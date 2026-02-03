@@ -149,17 +149,20 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         reader.readAsText(file);
     };
 
-    // Hard reset - "Nuclear Option" for mobile stability
+    // Hard reset - "Nuclear Option" for mobile stability (Android Chrome Fix)
     const performHardReset = () => {
-        // 1. Manually clear the specific save key used by Zustand
-        localStorage.removeItem('political-revolution-save');
+        // 1. Clear ALL storage to ensure no persistent state remains
+        localStorage.clear();
+        sessionStorage.clear();
 
-        // 2. Clear other related storage items
-        localStorage.removeItem('political-revolution-audio-muted');
-        localStorage.removeItem('political-revolution-tutorial');
+        // 2. Force a hard reload with cache busting
+        // Using replace and a timestamp ensures browsers (especially mobile Chrome)
+        // don't try to restore a cached/stale version of the page or its memory.
+        const url = new URL(window.location.origin);
+        url.searchParams.set('t', Date.now().toString());
 
-        // 3. Force a hard reload from the server to clear in-memory state
-        window.location.reload();
+        console.log('[Reset] Purged storage, forcing hard reload...');
+        window.location.replace(url.toString());
     };
 
     if (!isOpen) return null;
