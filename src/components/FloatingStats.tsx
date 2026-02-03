@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { useStore } from '../store/useStore';
+import { useStore, getPolling } from '../store/useStore';
+import { useMemo } from 'react';
 import { formatNumber, getMomentumMultiplier, VOLUNTEER_BONUS_PER } from '../config/gameConfig';
 import { ACTIVITIES } from '../config/activities';
 import { getPolicyById } from '../config/policies';
@@ -19,6 +20,13 @@ export function FloatingStats({ isVisible }: FloatingStatsProps) {
     const activities = useStore(state => state.activities);
     const unlockedPolicies = useStore(state => state.unlockedPolicies);
     const unlockedStructures = useStore(state => state.unlockedStructures);
+    const lifetimeEarnings = useStore(state => state.lifetimeEarnings);
+    const happiness = useStore(state => state.happiness);
+
+    // Calculate polling percentage - Memoized for efficiency
+    const polling = useMemo(() =>
+        getPolling({ lifetimeEarnings, popularity, momentum, happiness }),
+        [lifetimeEarnings, popularity, momentum, happiness]);
 
     const momentumMultiplier = getMomentumMultiplier(momentum);
     const volunteerMultiplier = 1 + (volunteers * VOLUNTEER_BONUS_PER);
@@ -99,9 +107,22 @@ export function FloatingStats({ isVisible }: FloatingStatsProps) {
 
                         {/* Popularity */}
                         <div className="flex items-center gap-1">
-                            <span className="text-sm">{popularity >= 1.2 ? '⭐' : '📊'}</span>
+                            <span className="text-sm">{popularity >= 1.2 ? '⭐' : '📉'}</span>
                             <span className={`font-medium text-xs tabular-nums ${popularity >= 1.2 ? 'text-amber-400' : 'text-slate-400'}`}>
                                 {popularity.toFixed(2)}x
+                            </span>
+                        </div>
+
+                        <div className="w-px h-4 bg-slate-700" />
+
+                        {/* Polling */}
+                        <div className="flex items-center gap-1">
+                            <span className={`text-sm ${polling >= 51 ? 'animate-pulse' : ''}`}>📊</span>
+                            <span className={`font-bold text-xs tabular-nums ${polling >= 51 ? 'text-emerald-400' :
+                                    polling >= 45 ? 'text-amber-400' :
+                                        'text-slate-400'
+                                }`}>
+                                {polling.toFixed(1)}%
                             </span>
                         </div>
                     </div>
