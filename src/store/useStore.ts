@@ -194,7 +194,10 @@ function initializeActivities(): Record<string, ActivityState> {
 }
 
 // Helper to calculate total global multiplier (including global policies + morale)
-const calculateMultipliers = (state: GameState) => {
+// Extracting dependencies for type safety
+type MultiplierDependencies = Pick<GameState, 'momentum' | 'volunteers' | 'popularity' | 'happiness' | 'unlockedPolicies' | 'unlockedStructures'>;
+
+const calculateMultipliers = (state: MultiplierDependencies) => {
     const momentumMultiplier = getMomentumMultiplier(state.momentum);
     const volunteerMultiplier = 1 + (state.volunteers * VOLUNTEER_BONUS_PER);
     const moraleMultiplier = getMoraleMultiplier(state.happiness);
@@ -235,12 +238,9 @@ const getPolicyMultiplier = (state: GameState, activityId: string): number => {
  * This is the single source of truth for the money earned per click.
  * Used by both the canvass action and CanvassButton for display.
  */
-export function getClickValue(state: Pick<GameState,
-    'momentum' | 'volunteers' | 'popularity' | 'happiness' |
-    'unlockedPolicies' | 'unlockedStructures' | 'unlockedSkills'
->): number {
+export function getClickValue(state: MultiplierDependencies & { unlockedSkills: string[] }): number {
     const skillEffects = calculateSkillEffects(state.unlockedSkills);
-    const multipliers = calculateMultipliers(state as GameState);
+    const multipliers = calculateMultipliers(state);
     return 1 * multipliers * skillEffects.clickValueMult;
 }
 
@@ -338,21 +338,22 @@ export const useStore = create<GameState>()(
 
             // Manually run an activity (Clicking the card)
             runActivity: (id: string) => {
-                const state = get();
-                const activity = state.activities[id];
-
-                // Can only run if owned, NOT already running, and NOT managed (managers handle it automatically)
-                if (activity.owned > 0 && activity.progress === 0 && !activity.managerHired) {
-                    set(state => ({
-                        activities: {
-                            ...state.activities,
-                            [id]: {
-                                ...activity,
-                                progress: 0.1, // Start progress slightly above 0 to catch it in the tick
+                set(state => {
+                    const activity = state.activities[id];
+                    // Can only run if owned, NOT already running, and NOT managed (managers handle it automatically)
+                    if (activity.owned > 0 && activity.progress === 0 && !activity.managerHired) {
+                        return {
+                            activities: {
+                                ...state.activities,
+                                [id]: {
+                                    ...activity,
+                                    progress: 0.1, // Start progress slightly above 0 to catch it in the tick
+                                },
                             },
-                        },
-                    }));
-                }
+                        };
+                    }
+                    return state;
+                });
             },
 
             // Buy an activity
@@ -380,10 +381,10 @@ export const useStore = create<GameState>()(
 
                     // FIXED: Proper recruitment logic for Mass Mobilization skill
                     // If milestone: Always trigger recruitment drive
-                    // If NOT milestone: Chance = (SkillMult - 1) * 0.1
-                    // e.g., 1.25x skill = 25% * 0.1 = 2.5% random chance outside milestones
+                    // If NOT milestone: Chance = (SkillMult - 1).
+                    // e.g., 1.25x skill = 25% random chance outside milestones
                     const extraChance = skillEffects.recruitmentChanceMult - 1;
-                    const shouldTriggerMiniGame = isMilestone || (extraChance > 0 && Math.random() < extraChance * 0.1);
+                    const shouldTriggerMiniGame = isMilestone || (extraChance > 0 && Math.random() < extraChance);
 
                     // Gain XP from purchase + milestone bonus if applicable
                     let xpGain = Math.floor(cost * XP_REWARDS.ACTIVITY_PURCHASE_MULT);
@@ -421,31 +422,33 @@ export const useStore = create<GameState>()(
 
             // Hire a manager for an activity
             hireManager: (id: string) => {
-                const state = get();
                 const activity = ACTIVITIES.find(a => a.id === id);
                 if (!activity) return;
 
-                const activityState = state.activities[id];
-                if (activityState.managerHired || activityState.owned === 0) return;
+                set(state => {
+                    const activityState = state.activities[id];
+                    if (activityState.managerHired || activityState.owned === 0) return state;
 
-                // Apply skill manager cost reduction
-                const skillEffects = calculateSkillEffects(state.unlockedSkills);
-                const baseCost = getManagerCost(activity.baseCost);
-                const cost = Math.floor(baseCost * skillEffects.managerCostMult);
+                    // Apply skill manager cost reduction
+                    const skillEffects = calculateSkillEffects(state.unlockedSkills);
+                    const baseCost = getManagerCost(activity.baseCost);
+                    const cost = Math.floor(baseCost * skillEffects.managerCostMult);
 
-                if (state.funds >= cost) {
-                    set(state => ({
-                        funds: state.funds - cost,
-                        activities: {
-                            ...state.activities,
-                            [id]: {
-                                ...state.activities[id],
-                                managerHired: true,
-                                progress: 0.1, // Kickstart it immediately
+                    if (state.funds >= cost) {
+                        return {
+                            funds: state.funds - cost,
+                            activities: {
+                                ...state.activities,
+                                [id]: {
+                                    ...state.activities[id],
+                                    managerHired: true,
+                                    progress: 0.1, // Kickstart it immediately
+                                },
                             },
-                        },
-                    }));
-                }
+                        };
+                    }
+                    return state;
+                });
             },
 
             // Buy a policy upgrade - now affects happiness and triggers modal
