@@ -29,3 +29,26 @@ export function formatMoney(amount: number): string {
 export function formatNumber(num: number): string {
     return num.toLocaleString();
 }
+
+/**
+ * Format a number with K, M, B, T suffixes (no currency symbol)
+ * @example formatCompactNumber(1200) -> "1.2k"
+ */
+export function formatCompactNumber(num: number): string {
+    const absNum = Math.abs(num);
+    const sign = num < 0 ? '-' : '';
+
+    if (absNum >= 1000000000000) {
+        return `${sign}${(absNum / 1000000000000).toFixed(2)}T`;
+    }
+    if (absNum >= 1000000000) {
+        return `${sign}${(absNum / 1000000000).toFixed(2)}B`;
+    }
+    if (absNum >= 1000000) {
+        return `${sign}${(absNum / 1000000).toFixed(2)}M`;
+    }
+    if (absNum >= 1000) {
+        return `${sign}${(absNum / 1000).toFixed(1)}k`;
+    }
+    return `${sign}${Math.floor(absNum)}`;
+}

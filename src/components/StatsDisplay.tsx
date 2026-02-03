@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useStore, getPolling } from '../store/useStore';
 import { formatNumber, getMomentumMultiplier, VOLUNTEER_BONUS_PER } from '../config/gameConfig';
 import { ACTIVITIES } from '../config/activities';
@@ -6,7 +6,7 @@ import { getPolicyById } from '../config/policies';
 import { formatMoney } from '../utils/formatting';
 import { getMilestoneSpeedMultiplier, getGlobalMilestoneMultiplier } from '../config/unlocks';
 import { getPowerStructureMultiplier } from '../config/powerStructures';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 
 export function StatsDisplay() {
     const funds = useStore(state => state.funds);
@@ -19,8 +19,10 @@ export function StatsDisplay() {
     const lifetimeEarnings = useStore(state => state.lifetimeEarnings);
     const happiness = useStore(state => state.happiness);
 
-    // Calculate polling percentage
-    const polling = getPolling({ lifetimeEarnings, popularity, momentum, happiness });
+    // Calculate polling percentage - Memoized to prevent unnecessary recalculations
+    const polling = useMemo(() =>
+        getPolling({ lifetimeEarnings, popularity, momentum, happiness }),
+        [lifetimeEarnings, popularity, momentum, happiness]);
 
     // Track if we just crossed 51% for pulse animation
     const [isPulsing, setIsPulsing] = useState(false);
@@ -105,43 +107,36 @@ export function StatsDisplay() {
 
                 {/* THE BIG NUMBER */}
                 <div className="text-center mb-3">
-                    <AnimatePresence mode="wait">
-                        <motion.div
-                            key={`polling-${Math.floor(polling * 10)}`}
-                            className={`text-5xl font-black tabular-nums tracking-tight ${
-                                isWinning
-                                    ? 'text-emerald-400'
-                                    : isCritical
-                                        ? 'text-red-400'
-                                        : isCloseRace
-                                            ? 'text-amber-400'
-                                            : 'text-slate-300'
+                    <motion.div
+                        className={`text-5xl font-black tabular-nums tracking-tight ${isWinning
+                            ? 'text-emerald-400'
+                            : isCritical
+                                ? 'text-red-400'
+                                : isCloseRace
+                                    ? 'text-amber-400'
+                                    : 'text-slate-300'
                             }`}
-                            initial={{ scale: 0.9, opacity: 0 }}
-                            animate={{
-                                scale: isPulsing ? [1, 1.1, 1] : 1,
-                                opacity: 1
-                            }}
-                            transition={{
-                                duration: isPulsing ? 0.5 : 0.2,
-                                repeat: isPulsing ? 2 : 0
-                            }}
-                        >
-                            {polling.toFixed(1)}%
-                        </motion.div>
-                    </AnimatePresence>
+                        animate={{
+                            scale: isPulsing ? [1, 1.1, 1] : 1,
+                        }}
+                        transition={{
+                            duration: isPulsing ? 0.5 : 0.2,
+                            repeat: isPulsing ? 2 : 0
+                        }}
+                    >
+                        {polling.toFixed(1)}%
+                    </motion.div>
 
                     {/* Status Indicator */}
                     <motion.div
-                        className={`text-xs font-semibold mt-1 ${
-                            isWinning
-                                ? 'text-emerald-500'
-                                : isCritical
-                                    ? 'text-red-500'
-                                    : isCloseRace
-                                        ? 'text-amber-500'
-                                        : 'text-slate-500'
-                        }`}
+                        className={`text-xs font-semibold mt-1 ${isWinning
+                            ? 'text-emerald-500'
+                            : isCritical
+                                ? 'text-red-500'
+                                : isCloseRace
+                                    ? 'text-amber-500'
+                                    : 'text-slate-500'
+                            }`}
                         animate={isPulsing ? { scale: [1, 1.1, 1] } : {}}
                     >
                         {isWinning
@@ -166,13 +161,12 @@ export function StatsDisplay() {
 
                         {/* Progress Fill */}
                         <motion.div
-                            className={`h-full rounded-full relative ${
-                                isWinning
-                                    ? 'bg-gradient-to-r from-emerald-600 via-emerald-500 to-green-400'
-                                    : isCritical
-                                        ? 'bg-gradient-to-r from-red-700 via-red-600 to-red-500'
-                                        : 'bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-400'
-                            }`}
+                            className={`h-full rounded-full relative ${isWinning
+                                ? 'bg-gradient-to-r from-emerald-600 via-emerald-500 to-green-400'
+                                : isCritical
+                                    ? 'bg-gradient-to-r from-red-700 via-red-600 to-red-500'
+                                    : 'bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-400'
+                                }`}
                             initial={{ width: 0 }}
                             animate={{
                                 width: `${polling}%`,

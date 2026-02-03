@@ -2,6 +2,8 @@ import { motion } from 'framer-motion';
 import { useStore } from '../store/useStore';
 import { calculateLevelFromXp } from '../config/skills';
 
+import { formatCompactNumber } from '../utils/formatting';
+
 interface XPBarProps {
     onOpenSkillTree: () => void;
 }
@@ -35,7 +37,7 @@ export function XPBar({ onOpenSkillTree }: XPBarProps) {
                             Candidate XP
                         </span>
                         <span className="text-amber-400/80">
-                            {levelInfo.currentLevelXp} / {levelInfo.xpForNextLevel}
+                            {formatCompactNumber(levelInfo.currentLevelXp)} / {formatCompactNumber(levelInfo.xpForNextLevel)}
                         </span>
                     </div>
                     <div className="h-2 bg-slate-900/50 rounded-full overflow-hidden">
